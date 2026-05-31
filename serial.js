@@ -1,61 +1,73 @@
-// serial.js
+// serial.js - Изолированный драйвер низкоуровневой работы с COM-портом
+
 class SerialConnection {
     constructor() {
         this.port = null;
         this.reader = null;
-        this.writer = null;
-    }
-
-    // Запрос прав у пользователя и открытие порта на скорости 115200
-    async open() {
-        // Браузер покажет системное окно со списком COM-портов
-        this.port = await navigator.serial.requestPort();
-        
-        // Открываем порт с запасом буферизации на стороне Windows (4 КБ)
-        await this.port.open({ baudRate: 115200, bufferSize: 4096 });
-        
-        // Получаем низкоуровневые потоки чтения и записи байт
-        this.reader = this.port.readable.getReader();
-        this.writer = this.port.writable.getWriter();
-    }
-
-    // Отправка сырого массива байт (Uint8Array) в STM32
-    async send(bytes) {
-        if (!this.writer) return;
-        await this.writer.write(bytes);
+        this.readableStream = null;
+        this.isConnected = false;
     }
 
     /**
-     * Чтение пакета строго фиксированной длины с защитой от подвисания потока.
-     * @param {number} size - Сколько байт ожидает Modbus-парсер (для чтения 1 регистра это 7 байт)
-     * @param {number} timeoutMs - Предельное время ожидания ответа в миллисекундах
+     * Запрос разрешения у пользователя и открытие физического COM-порта.
+     * @param {number} baudRate - Скорость подключения (по умолчанию 115200 для STM32)
      */
-    async readExact(size, timeoutMs = 25) {
-        const buffer = new Uint8Array(size);
-        let readBytes = 0;
-        const start = performance.now();
-
-        while (readBytes < size) {
-            // Проверка: если физически вышли за лимит таймаута внутри цикла
-            if ((performance.now() - start) > timeoutMs) {
-                throw new Error("Timeout: предел времени ожидания байт превышен");
-            }
-
-            // Организуем "гонку": либо данные приходят из порта, либо срабатывает таймер сброса
-            const { value, done } = await Promise.race([
-                this.reader.read(),
-                new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), timeoutMs))
-            ]);
-
-            if (done) break;
-
-            if (value) {
-                // Копируем пришедший кусок данных в наш итоговый буфер ответа
-                const chunkSpace = Math.min(value.length, size - readBytes);
-                buffer.set(value.subarray(0, chunkSpace), readBytes);
-                readBytes += chunkSpace;
-            }
+    async connect(baudRate = 115200) {
+        if (!('serial' in navigator)) {
+            throw new Error("Ваш браузер не поддерживает Web Serial API. Используйте Chrome или Edge.");
         }
-        return buffer;
+
+        try {
+            // Браузер запрашивает у операционной системы Windows список доступных портов
+            this.port = await navigator.serial.requestPort();
+            
+            // Открываем порт на заданной скорости
+            await this.port.open({ baudRate: baudRate });
+            
+            this.readableStream = this.port.readable;
+            this.reader = this.readableStream.getReader();
+            this.isConnected = true;
+            
+            console.log(`[Serial] Порт успешно открыт на скорости ${baudRate} бод.`);
+        } catch (error) {
+            this.isConnected = false;
+            this.port = null;
+            this.reader = null;
+            throw new Error(`Ошибка подключения к порту: ${error.message}`);
+        }
+    }
+
+    /**
+     * Асинхронное чтение очередной порции сырых байт из буфера Windows
+     * @returns {Promise<Uint8Array|null>} Массив считанных байт или null, если чтение завершено
+     */
+    async readChunk() {
+        if (!this.isConnected || !this.reader) return null;
+        try {
+            const { value, done } = await this.reader.read();
+            if (done) {
+                this.release();
+                return null;
+            }
+            return value; // Возвращаем Uint8Array со свежими байтами
+        } catch (error) {
+            console.error("[Serial] Ошибка критического чтения из порта:", error.message);
+            this.release();
+            throw error;
+        }
+    }
+
+    /**
+     * Корректное освобождение ресурсов при закрытии порта или отключении кабеля
+     */
+    release() {
+        this.isConnected = false;
+        try { 
+            if (this.reader) {
+                this.reader.releaseLock(); 
+            }
+        } catch(e) {}
+        this.reader = null;
+        this.port = null;
     }
 }
