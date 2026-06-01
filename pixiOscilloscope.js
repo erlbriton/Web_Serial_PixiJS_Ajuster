@@ -47,13 +47,9 @@ class PixiOscilloscope {
 
         // --- ГРАФИК 1 (ВЕРХНИЙ) ---
         if (dataArray1 && dataArray1.length > 0) {
-            let maxVal1 = 100;
-            for (let i = 0; i < dataArray1.length; i++) {
-                let absVal = Math.abs(dataArray1[i]);
-                if (absVal > maxVal1) maxVal1 = absVal;
-            }
-            // Масштабируем строго внутрь верхней зоны
-            const scaleY1 = (zoneHeight / 2) / (maxVal1 * 1.2);
+            // ПРАВИЛО: Масштаб строго фиксирован на уровне 1100
+            const maxVal1 = 1100; 
+            const scaleY1 = (zoneHeight / 2) / (maxVal1 * 1.05);
             const centerY1 = zoneHeight / 2; // Центр верхней половины холста
 
             this.lineGraphics.lineStyle(2, 0x0000ff, 1); // Синий цвет
@@ -71,13 +67,9 @@ class PixiOscilloscope {
 
         // --- ГРАФИК 2 (НИЖНИЙ) ---
         if (this.lineGraphics2 && dataArray2 && dataArray2.length > 0) {
-            let maxVal2 = 100;
-            for (let i = 0; i < dataArray2.length; i++) {
-                let absVal = Math.abs(dataArray2[i]);
-                if (absVal > maxVal2) maxVal2 = absVal;
-            }
-            // Масштабируем строго внутрь нижней зоны
-            const scaleY2 = (zoneHeight / 2) / (maxVal2 * 1.2);
+            // ПРАВИЛО: Масштаб строго фиксирован на уровне 1100
+            const maxVal2 = 1100; 
+            const scaleY2 = (zoneHeight / 2) / (maxVal2 * 1.05);
             const centerY2 = zoneHeight + (zoneHeight / 2); // Центр нижней половины холста
 
             this.lineGraphics2.lineStyle(2, 0xff0000, 1); // Красный цвет
