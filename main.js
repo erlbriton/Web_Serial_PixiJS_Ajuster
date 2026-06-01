@@ -142,7 +142,7 @@ try {
             }
             
             // Задержка 20 мс между запросами
-            await new Promise(res => setTimeout(res, 20));
+            await new Promise(res => setTimeout(res, 40));
         }
     }
 
