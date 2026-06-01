@@ -9,8 +9,8 @@ class PixiOscilloscope {
         // Создаем высокопроизводительное приложение PixiJS (WebGL)
         this.app = new PIXI.Application({
             width: width,
-            height: height,
-            backgroundColor: 0x020203, // Глубокий темный фон
+            height: height / 4,
+            backgroundColor: 0xf5f5f5, // Глубокий темный фон
             antialias: true
         });
         
@@ -35,11 +35,11 @@ class PixiOscilloscope {
         this.lineGraphics.clear();
 
         // 1. Рисуем координатную сетку осциллографа (шаг 50 пикселей)
-        this.lineGraphics.lineStyle(1, 0x141416, 1); // Тонкие темно-серые линии
-        for (let x = 50; x < this.width; x += 50) {
+        this.lineGraphics.lineStyle(1, 0xdcdcdc, 1); // Тонкие темно-серые линии
+        for (let x = 25; x < this.width; x += 25) {
             this.lineGraphics.moveTo(x, 0).lineTo(x, this.height);
         }
-        for (let y = 50; y < this.height; y += 50) {
+        for (let y = 25; y < this.height; y += 25) {
             this.lineGraphics.moveTo(0, y).lineTo(this.width, y);
         }
 
@@ -56,7 +56,7 @@ class PixiOscilloscope {
         const stepX = this.width / maxCapacity; // Шаг по горизонтали зависит от размера буфера
 
         // 3. Отрисовываем луч ярко-зеленым цветом
-        this.lineGraphics.lineStyle(2, 0x00ff66, 1);
+        this.lineGraphics.lineStyle(2, 0x0000ff, 1);
         
         for (let i = 0; i < dataArray.length; i++) {
             const x = i * stepX;
@@ -65,7 +65,7 @@ class PixiOscilloscope {
             if (i === 0) {
                 this.lineGraphics.moveTo(x, y);
             } else {
-                this.lineGraphics.lineTo(x, y);
+                this.lineGraphics.lineTo(x, y / 2);
             }
         }
     }
