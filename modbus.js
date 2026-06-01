@@ -46,14 +46,21 @@ class ModbusParser {
                 const packet = this.buffer.subarray(0, fullPacketLength);
                 
                 if (this.calculateCRC(packet.subarray(0, fullPacketLength - 2)) === (packet[fullPacketLength - 1] << 8 | packet[fullPacketLength - 2])) {
-                    // Пакет валиден! Извлекаем значение первого регистра (2 байта: High и Low)
-                    const highByte = packet[3];
-                    const lowByte = packet[4];
-                    const adcValue = (highByte << 8) | lowByte;
+                    // Пакет валиден! Извлекаем значение ПЕРВОГО регистра (байты 3 и 4)
+                    const highByte1 = packet[3];
+                    const lowByte1 = packet[4];
+                    const adcValue1 = (highByte1 << 8) | lowByte1;
+
+                    // Извлекаем значение ВТОРОГО регистра (байты 5 и 6)
+                    const highByte2 = packet[5];
+                    const lowByte2 = packet[6];
+                    const adcValue2 = (highByte2 << 8) | lowByte2;
 
                     // Очищаем буфер от обработанного пакета
                     this.buffer = this.buffer.subarray(fullPacketLength);
-                    return adcValue;
+                    
+                    // Возвращаем оба значения в виде массива для main.js
+                    return [adcValue1, adcValue2];
                 } else {
                     // CRC не совпал — данные побились. Сдвигаем буфер на 1 байт вперед, чтобы искать новый маркер
                     this.buffer = this.buffer.subarray(1);

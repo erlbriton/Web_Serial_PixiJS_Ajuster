@@ -1,41 +1,39 @@
-// pixiOscilloscope.js
 class PixiOscilloscope {
-    /**
-     * @param {string} containerId - ID HTML-элемента, куда внедрится WebGL-экран
-     * @param {number} width - Ширина экрана в пикселях
-     * @param {number} height - Высота экрана в пикселях
-     */
-    constructor(containerId, width = 700, height = 350) {
-        // Создаем высокопроизводительное приложение PixiJS (WebGL)
+    constructor(containerId) {
+        const container = document.getElementById(containerId);
+        this.width = container.clientWidth;
+        // Высота холста приложения (четверть высоты экрана)
+        this.height = window.innerHeight / 4; 
+
         this.app = new PIXI.Application({
-            width: width,
-            height: height / 4,
-            backgroundColor: 0xf5f5f5, // Глубокий темный фон
+            width: this.width,
+            height: this.height,
+            backgroundColor: 0x1a1a1a,
             antialias: true
         });
-        
-        // Встраиваем созданный WebGL-холст в интерфейс
-        document.getElementById(containerId).appendChild(this.app.view);
-        
-        // Создаем графический объект Pixi для динамического рисования векторов
+        container.appendChild(this.app.view);
+
+        // Объект для первого (верхнего) графика и фона
         this.lineGraphics = new PIXI.Graphics();
         this.app.stage.addChild(this.lineGraphics);
-        
-        this.width = width;
-        this.height = height;
+
+        // Добавили объект для второго (нижнего) графика
+        this.lineGraphics2 = new PIXI.Graphics();
+        this.app.stage.addChild(this.lineGraphics2);
     }
 
-    /**
-     * Отрисовка сетки и луча.
-     * @param {Float32Array} dataArray - Хронологический срез данных из кольцевого буфера
-     * @param {number} maxCapacity - Максимальная емкость буфера (1000 точек)
-     */
-    draw(dataArray, maxCapacity) {
-        // Очищаем предыдущий кадр в видеопамяти
+    draw(dataArray1, dataArray2, maxCapacity) {
+        // Очищаем предыдущие кадры для обеих линий
         this.lineGraphics.clear();
+        if (this.lineGraphics2) this.lineGraphics2.clear();
 
-        // 1. Рисуем координатную сетку осциллографа (шаг 50 пикселей)
-        this.lineGraphics.lineStyle(1, 0xdcdcdc, 1); // Тонкие темно-серые линии
+        // 1. Возвращаем светлый фон на весь экран осциллографа
+        this.lineGraphics.beginFill(0xf5f5f5); 
+        this.lineGraphics.drawRect(0, 0, this.width, this.height);
+        this.lineGraphics.endFill();
+
+        // 2. Рисуем координатную сетку осциллографа
+        this.lineGraphics.lineStyle(1, 0xe0e0e0, 1); 
         for (let x = 25; x < this.width; x += 25) {
             this.lineGraphics.moveTo(x, 0).lineTo(x, this.height);
         }
@@ -43,29 +41,55 @@ class PixiOscilloscope {
             this.lineGraphics.moveTo(0, y).lineTo(this.width, y);
         }
 
-        if (!dataArray || dataArray.length === 0) return;
+        // Высота зоны для одного графика — это ровно половина от общей высоты холста
+        const zoneHeight = this.height / 2; 
+        const stepX = this.width / maxCapacity;
 
-        // 2. Рассчитываем масштаб сигнала по вертикали
-        let maxVal = 100;
-        for (let i = 0; i < dataArray.length; i++) {
-            let absVal = Math.abs(dataArray[i]);
-            if (absVal > maxVal) maxVal = absVal;
+        // --- ГРАФИК 1 (ВЕРХНИЙ) ---
+        if (dataArray1 && dataArray1.length > 0) {
+            let maxVal1 = 100;
+            for (let i = 0; i < dataArray1.length; i++) {
+                let absVal = Math.abs(dataArray1[i]);
+                if (absVal > maxVal1) maxVal1 = absVal;
+            }
+            // Масштабируем строго внутрь верхней зоны
+            const scaleY1 = (zoneHeight / 2) / (maxVal1 * 1.2);
+            const centerY1 = zoneHeight / 2; // Центр верхней половины холста
+
+            this.lineGraphics.lineStyle(2, 0x0000ff, 1); // Синий цвет
+            for (let i = 0; i < dataArray1.length; i++) {
+                const x = i * stepX;
+                const y = centerY1 - (dataArray1[i] * scaleY1);
+
+                if (i === 0) {
+                    this.lineGraphics.moveTo(x, y);
+                } else {
+                    this.lineGraphics.lineTo(x, y);
+                }
+            }
         }
-        const scaleY = (this.height / 2) / (maxVal * 1.2);
-        const centerY = this.height / 2;
-        const stepX = this.width / maxCapacity; // Шаг по горизонтали зависит от размера буфера
 
-        // 3. Отрисовываем луч ярко-зеленым цветом
-        this.lineGraphics.lineStyle(2, 0x0000ff, 1);
-        
-        for (let i = 0; i < dataArray.length; i++) {
-            const x = i * stepX;
-            const y = centerY - (dataArray[i] * scaleY);
+        // --- ГРАФИК 2 (НИЖНИЙ) ---
+        if (this.lineGraphics2 && dataArray2 && dataArray2.length > 0) {
+            let maxVal2 = 100;
+            for (let i = 0; i < dataArray2.length; i++) {
+                let absVal = Math.abs(dataArray2[i]);
+                if (absVal > maxVal2) maxVal2 = absVal;
+            }
+            // Масштабируем строго внутрь нижней зоны
+            const scaleY2 = (zoneHeight / 2) / (maxVal2 * 1.2);
+            const centerY2 = zoneHeight + (zoneHeight / 2); // Центр нижней половины холста
 
-            if (i === 0) {
-                this.lineGraphics.moveTo(x, y);
-            } else {
-                this.lineGraphics.lineTo(x, y / 2);
+            this.lineGraphics2.lineStyle(2, 0xff0000, 1); // Красный цвет
+            for (let i = 0; i < dataArray2.length; i++) {
+                const x = i * stepX;
+                const y = centerY2 - (dataArray2[i] * scaleY2);
+
+                if (i === 0) {
+                    this.lineGraphics2.moveTo(x, y);
+                } else {
+                    this.lineGraphics2.lineTo(x, y);
+                }
             }
         }
     }

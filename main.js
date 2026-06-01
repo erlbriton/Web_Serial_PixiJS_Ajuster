@@ -15,6 +15,7 @@ try {
 
     const view = new PixiOscilloscope("osc-container");
     const testBuffer = new RingBuffer(1000);
+    const testBuffer2 = new RingBuffer(1000); // Создали второй буфер для второго регистра
     
     const serial = new SerialConnection();
     const parser = new ModbusParser();
@@ -38,7 +39,7 @@ try {
 
     connectBtn.addEventListener("click", async () => {
         try {
-            stPort.textContent = "Выбор端口...";
+            stPort.textContent = "Выбор порта...";
             await serial.connect(115200);
             
             stPort.textContent = "ПОДКЛЮЧЕНО (115200)";
@@ -82,10 +83,11 @@ try {
 
                 parser.appendData(chunk);
 
-                let adcValue = parser.parsePacket();
-                while (adcValue !== null) {
-                    handleValidPacket(adcValue);
-                    adcValue = parser.parsePacket();
+                let packetData = parser.parsePacket();
+                while (packetData !== null) {
+                    // Передаем в обработчик полученные данные (массив или объект с двумя регистрами)
+                    handleValidPacket(packetData);
+                    packetData = parser.parsePacket();
                 }
             }
         } catch (error) {
@@ -103,12 +105,13 @@ try {
         while (serial.isConnected) {
             try {
                 // Собираем тело запроса функции 03 (6 байт)
+                // ОБНОВЛЕНО: запрашиваем 0x00, 0x02 (2 регистра вместо 1)
                 const body = new Uint8Array([
                     SLAVE_ADDRESS, 
                     0x03,                           // Функция чтения Holding Registers
                     (REGISTER_ADDR >> 8) & 0xFF,    // Адрес регистра High
                     REGISTER_ADDR & 0xFF,           // Адрес регистра Low
-                    0x00, 0x01                      // Количество регистров (1 штука)
+                    0x00, 0x02                      // Количество регистров (ТЕПЕРЬ 2 ШТУКИ)
                 ]);
 
                 // Считаем CRC16 Modbus
@@ -143,12 +146,18 @@ try {
         }
     }
 
-    function handleValidPacket(adcValue) {
+    // ОБНОВЛЕНО: Принимаем пакет packetData (который содержит два значения)
+    function handleValidPacket(packetData) {
         const currentTime = performance.now(); 
         const interval = currentTime - lastPacketTime; 
         lastPacketTime = currentTime;
 
         packetCount++;
+
+        // Извлекаем значения для двух графиков
+        // Если парсер вернул массив: берем индекс 0 и 1. Если просто число — страхуемся, берем его
+        let val1 = Array.isArray(packetData) ? packetData[0] : packetData;
+        let val2 = Array.isArray(packetData) ? packetData[1] : packetData; // Если второго нет, временно продублирует первый
 
         if (packetCount > 1) {
             totalIntervalsSum += interval;
@@ -163,7 +172,8 @@ try {
                 recentIntervals.shift(); 
             }
 
-            stModbus.textContent = `ПАКЕТЫ ИДУТ (ADC: ${adcValue})`;
+            // Выводим в статус бары значения обоих регистров
+            stModbus.textContent = `ПАКЕТЫ ИДУТ (R1: ${val1}, R2: ${val2})`;
             stModbus.style.color = "#00ff66";
 
             mLast.textContent = Math.round(interval);
@@ -177,12 +187,19 @@ try {
             intervalsLog.textContent = recentIntervals.join(" ");
         }
 
-        testBuffer.push(adcValue);
+        // Заполняем оба буфера данными соответствующих регистров
+        testBuffer.push(val1);
+        testBuffer2.push(val2);
+
         const linearData = testBuffer.getLinearData();
-        view.draw(linearData, testBuffer.capacity);
+        const linearData2 = testBuffer2.getLinearData(); // Получаем данные из 2-го буфера
+        
+        // Передаем оба массива в draw
+        view.draw(linearData, linearData2, testBuffer.capacity); 
     }
 
-    view.draw(new Float32Array(0), 1000);
+    // Добавили второй пустой массив для стартового кадра
+    view.draw(new Float32Array(0), new Float32Array(0), 1000);
 
 } catch (error) {
     console.error("Ошибка инициализации главного файла:", error.message);
