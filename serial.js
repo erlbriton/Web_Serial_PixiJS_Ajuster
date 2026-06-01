@@ -21,7 +21,7 @@ class SerialConnection {
             // Браузер запрашивает у операционной системы Windows список доступных портов
             this.port = await navigator.serial.requestPort();
             
-            // Открываем порт на заданной скорости
+            // Открываем港 на заданной скорости
             await this.port.open({ baudRate: baudRate });
             
             this.readableStream = this.port.readable;
@@ -55,6 +55,18 @@ class SerialConnection {
             this.release();
             throw error;
         }
+    }
+
+    /**
+     * Отправка массива байт (запроса Мастера) в сторону устройства (Slave)
+     * @param {Uint8Array} data - Массив байт запроса Modbus RTU
+     */
+    async write(data) {
+        if (!this.isConnected || !this.port || !this.port.writable) return;
+        
+        const writer = this.port.writable.getWriter();
+        await writer.write(data);
+        writer.releaseLock(); // Мгновенно освобождаем поток записи для следующих циклов опроса
     }
 
     /**
