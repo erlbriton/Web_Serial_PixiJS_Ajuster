@@ -1,8 +1,8 @@
 class PixiOscilloscope {
-    constructor(containerId) {
+   constructor(containerId) {
         const container = document.getElementById(containerId);
         this.width = container.clientWidth;
-        this.height = 600;
+        this.height = container.clientHeight;
         this.rowHeight = 20;
         this.totalRows = 70;
         this.scrollY = 0;

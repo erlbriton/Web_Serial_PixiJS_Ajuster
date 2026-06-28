@@ -4,6 +4,8 @@ const REGISTER_ADDR = 0x0000;
 let lastPacketTime = 0;
 let lastLogTime = 0; // Для контроля частоты вывода в консоль
 
+
+
 try {
     const view = new PixiOscilloscope("osc-container");
     
