@@ -2,63 +2,22 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Web Serial PixiJS Diagnostic Stand</title>
+    <title>Web_Serial_PixiJS_Ajuster</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.4.2/pixi.min.js"></script>
-    <style>
-        body { 
-            font-family: monospace; 
-            background: #0c0c0d; 
-            color: #00ff66; 
-            padding: 20px; 
-            font-size: 16px; 
-            line-height: 1.5;
-            margin: 0;
-            height: 100vh; /* Заставляем body занимать всю высоту окна */
-            box-sizing: border-box; /* Чтобы padding не увеличивал размер страницы */
-        }
-        
-        button { 
-            background: #1a1a1a; 
-            color: #00ff66; 
-            border: 1px solid #00ff66; 
-            padding: 10px 20px; 
-            font-family: monospace; 
-            font-weight: bold; 
-            cursor: pointer; 
-            margin-bottom: 20px; 
-        }
-        button:hover { background: #00ff66; color: #0c0c0d; }
-              
-        #osc-container { 
-            border: 2px solid #222; 
-            background: #050505;
-            width: 900px; /* Ширина остается фиксированной */
-            
-            /* Высота = 100% окна минус:
-               - 20px (верхний padding body)
-               - 45px (примерная высота кнопки)
-               - 20px (margin-bottom кнопки)
-               - 20px (нижний padding body)
-            */
-            height: calc(100vh - 125px); 
-        }
-    </style>
+    <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
 
     <button id="connectBtn">ОТКРЫТЬ ПОРТ И ЗАПУСТИТЬ ТЕСТ</button>
 
-        <div id="osc-container"></div>
-    </div>
+    <div id="osc-container"></div>
 
-    <script src="ringBuffer.js"></script>
-
-    <script src="pixiOscilloscope.js"></script>
+    <script src="js/oscilloscope/ringBuffer.js"></script>
+    <script src="js/oscilloscope/pixiOscilloscope.js"></script>
     
-    <script src="serial.js"></script>
-
-    <script src="modbus.js"></script>
+    <script src="js/serial/serial.js"></script>
+    <script src="js/serial/modbus.js"></script>
     
-    <script src="main.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>
