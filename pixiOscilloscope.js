@@ -50,25 +50,35 @@ class PixiOscilloscope {
 
     draw(buffers) {
         const maxVal = 1100;
+        
+        // Определяем границы видимости относительно скролла
+        const viewTop = -this.scrollY;
+        const viewBottom = viewTop + this.height;
 
         for (let i = 0; i < this.totalRows; i++) {
             const g = this.graphicsList[i];
-            const buffer = buffers[i];
-
             const yOffset = i * this.rowHeight;
-            g.clear();
 
-            // Фон строки
+            // --- КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ ---
+            // Если график выше или ниже видимой области — прячем его и не рисуем
+            if (yOffset + this.rowHeight < viewTop || yOffset > viewBottom) {
+                g.visible = false;
+                continue; 
+            }
+            
+            g.visible = true; // Показываем, если попал в область видимости
+            // --------------------------------
+
+            g.clear();
             g.beginFill(i % 2 === 0 ? 0x222222 : 0x1a1a1a);
             g.drawRect(0, yOffset, this.width, this.rowHeight);
             g.endFill();
 
+            const buffer = buffers[i];
             if (buffer) {
                 const data = buffer.getLinearData();
                 if (data && data.length > 0) {
                     const stepX = this.width / buffer.capacity;
-                    
-                    // Выбираем цвет по индексу (i % 10)
                     g.lineStyle(1, this.brightColors[i % 10], 1);
 
                     for (let j = 0; j < data.length; j++) {
