@@ -2,8 +2,24 @@ class PixiOscilloscope {
     constructor(containerId) {
         const container = document.getElementById(containerId);
         this.width = container.clientWidth;
-        // Высота холста приложения (четверть высоты экрана)
-        this.height = window.innerHeight / 4; 
+        this.height = 600;
+        this.rowHeight = 20;
+        this.totalRows = 70;
+        this.scrollY = 0;
+
+        // Палитра из 10 очень ярких «неоновых» цветов
+        this.brightColors = [
+            0x00FF00, // Ярко-зеленый
+            0x00FFFF, // Циан
+            0xFF00FF, // Маджента
+            0xFFFF00, // Желтый
+            0xFF4500, // Ярко-оранжевый
+            0x0099FF, // Неоновый синий
+            0xFF0088, // Ярко-розовый
+            0xADFF2F, // Желто-зеленый
+            0xFFFFFF, // Белый
+            0x7B68EE  // Яркий фиолетовый
+        ];
 
         this.app = new PIXI.Application({
             width: this.width,
@@ -13,74 +29,55 @@ class PixiOscilloscope {
         });
         container.appendChild(this.app.view);
 
-        // Объект для первого (верхнего) графика и фона
-        this.lineGraphics = new PIXI.Graphics();
-        this.app.stage.addChild(this.lineGraphics);
+        this.stageContainer = new PIXI.Container();
+        this.app.stage.addChild(this.stageContainer);
 
-        // Добавили объект для второго (нижнего) графика
-        this.lineGraphics2 = new PIXI.Graphics();
-        this.app.stage.addChild(this.lineGraphics2);
+        this.graphicsList = [];
+        for (let i = 0; i < this.totalRows; i++) {
+            const g = new PIXI.Graphics();
+            this.stageContainer.addChild(g);
+            this.graphicsList.push(g);
+        }
+
+        container.addEventListener('wheel', (e) => {
+            this.scrollY -= e.deltaY;
+            const minScroll = this.height - (this.totalRows * this.rowHeight);
+            if (this.scrollY > 0) this.scrollY = 0;
+            if (this.scrollY < minScroll) this.scrollY = minScroll;
+            this.stageContainer.y = this.scrollY;
+        });
     }
 
-    draw(dataArray1, dataArray2, maxCapacity) {
-        // Очищаем предыдущие кадры для обеих линий
-        this.lineGraphics.clear();
-        if (this.lineGraphics2) this.lineGraphics2.clear();
+    draw(buffers) {
+        const maxVal = 1100;
 
-        // 1. Возвращаем светлый фон на весь экран осциллографа
-        this.lineGraphics.beginFill(0xf5f5f5); 
-        this.lineGraphics.drawRect(0, 0, this.width, this.height);
-        this.lineGraphics.endFill();
+        for (let i = 0; i < this.totalRows; i++) {
+            const g = this.graphicsList[i];
+            const buffer = buffers[i];
 
-        // 2. Рисуем координатную сетку осциллографа
-        this.lineGraphics.lineStyle(1, 0xe0e0e0, 1); 
-        for (let x = 25; x < this.width; x += 25) {
-            this.lineGraphics.moveTo(x, 0).lineTo(x, this.height);
-        }
-        for (let y = 25; y < this.height; y += 25) {
-            this.lineGraphics.moveTo(0, y).lineTo(this.width, y);
-        }
+            const yOffset = i * this.rowHeight;
+            g.clear();
 
-        // Высота зоны для одного графика — это ровно половина от общей высоты холста
-        const zoneHeight = this.height / 2; 
-        const stepX = this.width / maxCapacity;
+            // Фон строки
+            g.beginFill(i % 2 === 0 ? 0x222222 : 0x1a1a1a);
+            g.drawRect(0, yOffset, this.width, this.rowHeight);
+            g.endFill();
 
-        // --- ГРАФИК 1 (ВЕРХНИЙ) ---
-        if (dataArray1 && dataArray1.length > 0) {
-            // ПРАВИЛО: Масштаб строго фиксирован на уровне 1100
-            const maxVal1 = 1100; 
-            const scaleY1 = (zoneHeight / 2) / (maxVal1 * 1.05);
-            const centerY1 = zoneHeight / 2; // Центр верхней половины холста
+            if (buffer) {
+                const data = buffer.getLinearData();
+                if (data && data.length > 0) {
+                    const stepX = this.width / buffer.capacity;
+                    
+                    // Выбираем цвет по индексу (i % 10)
+                    g.lineStyle(1, this.brightColors[i % 10], 1);
 
-            this.lineGraphics.lineStyle(2, 0x0000ff, 1); // Синий цвет
-            for (let i = 0; i < dataArray1.length; i++) {
-                const x = i * stepX;
-                const y = centerY1 - (dataArray1[i] * scaleY1);
-
-                if (i === 0) {
-                    this.lineGraphics.moveTo(x, y);
-                } else {
-                    this.lineGraphics.lineTo(x, y);
-                }
-            }
-        }
-
-        // --- ГРАФИК 2 (НИЖНИЙ) ---
-        if (this.lineGraphics2 && dataArray2 && dataArray2.length > 0) {
-            // ПРАВИЛО: Масштаб строго фиксирован на уровне 1100
-            const maxVal2 = 1100; 
-            const scaleY2 = (zoneHeight / 2) / (maxVal2 * 1.05);
-            const centerY2 = zoneHeight + (zoneHeight / 2); // Центр нижней половины холста
-
-            this.lineGraphics2.lineStyle(2, 0xff0000, 1); // Красный цвет
-            for (let i = 0; i < dataArray2.length; i++) {
-                const x = i * stepX;
-                const y = centerY2 - (dataArray2[i] * scaleY2);
-
-                if (i === 0) {
-                    this.lineGraphics2.moveTo(x, y);
-                } else {
-                    this.lineGraphics2.lineTo(x, y);
+                    for (let j = 0; j < data.length; j++) {
+                        const x = j * stepX;
+                        const val = (data[j] / maxVal) * this.rowHeight;
+                        const y = yOffset + (this.rowHeight - val);
+                        if (j === 0) g.moveTo(x, y);
+                        else g.lineTo(x, y);
+                    }
                 }
             }
         }
