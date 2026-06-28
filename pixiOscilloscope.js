@@ -59,15 +59,12 @@ class PixiOscilloscope {
             const g = this.graphicsList[i];
             const yOffset = i * this.rowHeight;
 
-            // --- КРИТИЧЕСКАЯ ОПТИМИЗАЦИЯ ---
-            // Если график выше или ниже видимой области — прячем его и не рисуем
             if (yOffset + this.rowHeight < viewTop || yOffset > viewBottom) {
                 g.visible = false;
                 continue; 
             }
             
-            g.visible = true; // Показываем, если попал в область видимости
-            // --------------------------------
+            g.visible = true;
 
             g.clear();
             g.beginFill(i % 2 === 0 ? 0x222222 : 0x1a1a1a);
@@ -76,15 +73,20 @@ class PixiOscilloscope {
 
             const buffer = buffers[i];
             if (buffer) {
-                const data = buffer.getLinearData();
+                // Используем ваш рабочий метод
+                const data = buffer.getLinearData(); 
                 if (data && data.length > 0) {
                     const stepX = this.width / buffer.capacity;
                     g.lineStyle(1, this.brightColors[i % 10], 1);
 
                     for (let j = 0; j < data.length; j++) {
-                        const x = j * stepX;
-                        const val = (data[j] / maxVal) * this.rowHeight;
+                        // Трюк: мы рисуем данные с конца массива (data.length - 1) к началу (0)
+                        // Это заставляет график "расти" от правого края к левому
+                        const reversedIndex = data.length - 1 - j;
+                        const x = this.width - (j * stepX);
+                        const val = (data[reversedIndex] / maxVal) * this.rowHeight;
                         const y = yOffset + (this.rowHeight - val);
+                        
                         if (j === 0) g.moveTo(x, y);
                         else g.lineTo(x, y);
                     }
