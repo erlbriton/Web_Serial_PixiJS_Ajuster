@@ -50,6 +50,11 @@ class PixiOscilloscope {
 
     draw(buffers) {
         const maxVal = 1100;
+        const gridStep = 20; // шаг в пикселях
+        
+        // Скорость движения: 0.05 пикселя в миллисекунду
+        const speed = 0.05; 
+        const offset = (performance.now() * speed) % gridStep;
         
         // Определяем границы видимости относительно скролла
         const viewTop = -this.scrollY;
@@ -67,21 +72,26 @@ class PixiOscilloscope {
             g.visible = true;
 
             g.clear();
-            g.beginFill(i % 2 === 0 ? 0x222222 : 0x1a1a1a);
+            // Устанавливаем единый темный цвет фона для всех строк
+            g.beginFill(0x1a1a1a);
             g.drawRect(0, yOffset, this.width, this.rowHeight);
             g.endFill();
 
+            // Рисуем вертикальные линии сетки
+            g.lineStyle(1, 0x333333, 1); 
+            for (let x = -offset; x <= this.width; x += gridStep) {
+                g.moveTo(x, yOffset);
+                g.lineTo(x, yOffset + this.rowHeight);
+            }
+
             const buffer = buffers[i];
             if (buffer) {
-                // Используем ваш рабочий метод
                 const data = buffer.getLinearData(); 
                 if (data && data.length > 0) {
                     const stepX = this.width / buffer.capacity;
                     g.lineStyle(1, this.brightColors[i % 10], 1);
 
                     for (let j = 0; j < data.length; j++) {
-                        // Трюк: мы рисуем данные с конца массива (data.length - 1) к началу (0)
-                        // Это заставляет график "расти" от правого края к левому
                         const reversedIndex = data.length - 1 - j;
                         const x = this.width - (j * stepX);
                         const val = (data[reversedIndex] / maxVal) * this.rowHeight;
