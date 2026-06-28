@@ -50,15 +50,28 @@ class PixiOscilloscope {
 
     draw(buffers) {
         const maxVal = 1100;
-        const gridStep = 20; // шаг в пикселях
         
-        // Скорость движения: 0.05 пикселя в миллисекунду
-        const speed = 0.05; 
-        const offset = (performance.now() * speed) % gridStep;
+        // СКОРОСТЬ ГРАФИКА И СЕТКИ (пикселей в секунду)
+        // Поменяйте это число, чтобы изменить скорость. 
+        // Например: 40 — в два раза быстрее, 60 — в три раза быстрее, чем было.
+        const pixelsPerSecond = 40; 
         
-        // Определяем границы видимости относительно скролла
+        // Шаг сетки автоматически равен скорости, чтобы 1 шаг по-прежнему равнялся строго 1 секунде
+        const gridStep = pixelsPerSecond; 
+        
+        // Скорость изменения времени компьютера (пикселей в миллисекунду)
+        const pixelsPerMs = pixelsPerSecond / 1000;
+        const timeOffset = (performance.now() * pixelsPerMs) % gridStep;
+        
         const viewTop = -this.scrollY;
         const viewBottom = viewTop + this.height;
+
+        // Частота поступающих данных от устройства (50 точек в секунду)
+        const samplesPerSecond = 50; 
+        
+        // Автоматический расчет шага между точками, чтобы скорость графика 
+        // идеально соответствовала выбранной скорости pixelsPerSecond
+        const stepX = pixelsPerSecond / samplesPerSecond; 
 
         for (let i = 0; i < this.totalRows; i++) {
             const g = this.graphicsList[i];
@@ -72,14 +85,13 @@ class PixiOscilloscope {
             g.visible = true;
 
             g.clear();
-            // Устанавливаем единый темный цвет фона для всех строк
             g.beginFill(0x1a1a1a);
             g.drawRect(0, yOffset, this.width, this.rowHeight);
             g.endFill();
 
-            // Рисуем вертикальные линии сетки
+            // Рисуем вертикальные линии времени (строго привязаны к часам ПК)
             g.lineStyle(1, 0x333333, 1); 
-            for (let x = -offset; x <= this.width; x += gridStep) {
+            for (let x = -timeOffset; x <= this.width; x += gridStep) {
                 g.moveTo(x, yOffset);
                 g.lineTo(x, yOffset + this.rowHeight);
             }
@@ -88,12 +100,16 @@ class PixiOscilloscope {
             if (buffer) {
                 const data = buffer.getLinearData(); 
                 if (data && data.length > 0) {
-                    const stepX = this.width / buffer.capacity;
                     g.lineStyle(1, this.brightColors[i % 10], 1);
 
                     for (let j = 0; j < data.length; j++) {
                         const reversedIndex = data.length - 1 - j;
+                        
+                        // Координата X рассчитывается из нового масштаба скорости
                         const x = this.width - (j * stepX);
+                        
+                        if (x < 0) break;
+
                         const val = (data[reversedIndex] / maxVal) * this.rowHeight;
                         const y = yOffset + (this.rowHeight - val);
                         

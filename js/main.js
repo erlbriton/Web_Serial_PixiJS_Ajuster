@@ -10,7 +10,7 @@ try {
     const view = new PixiOscilloscope("osc-container");
     
     // Создаем массив из 70 независимых буферов
-    const buffers = Array.from({ length: 70 }, () => new RingBuffer(1000));
+    const buffers = Array.from({ length: 70 }, () => new RingBuffer(2500));
     
     const serial = new SerialConnection();
     const parser = new ModbusParser();
