@@ -9,6 +9,12 @@ body {
     overflow: hidden; 
 }
 
+/* Блокировщик мыши при ресайзе */
+body.is-resizing {
+    cursor: col-resize !important;
+    user-select: none !important;
+}
+
 .app-layout {
     display: flex;
     width: 100%;
@@ -31,7 +37,7 @@ body {
     left: -9999px !important;
 }
 
-/* Компонент таблицы */
+/* Правая сторона приложения */
 .panel-right {
     flex: 1;
     height: 100%;
@@ -84,7 +90,7 @@ body {
     box-sizing: border-box;
 }
 
-/* БОЛЬШАЯ ЛЕВАЯ КОЛОНКА (САЙДБАР) */
+/* Левая большая пустая колонка (сайдбар) */
 .left-sidebar-column {
     width: 220px; 
     height: 100%;
@@ -93,21 +99,20 @@ body {
     flex-shrink: 0;
 }
 
-/* ИНТЕРАКТИВНЫЙ РАЗДЕЛИТЕЛЬ САЙДБАРA */
+/* Интерактивный сплиттер */
 .sidebar-resizer {
     width: 4px;
     background-color: #000000;
     cursor: col-resize;
     flex-shrink: 0;
     z-index: 10;
-    transition: background-color 0.15s, width 0.15s;
+    transition: background-color 0.1s;
 }
 .sidebar-resizer:hover, .sidebar-resizer.active {
     background-color: #0055ff !important;
-    width: 6px; 
 }
 
-/* Внутренний контент справа */
+/* Правый внутренний блок */
 .right-main-content {
     flex: 1;
     height: 100%;
@@ -117,7 +122,7 @@ body {
     overflow: hidden;
 }
 
-/* Настройки */
+/* Верхняя панель параметров */
 .settings-panel {
     background-color: #c6c6c6;
     border: 1px solid #7b7b7b;
@@ -126,10 +131,31 @@ body {
     color: #000000;
     margin: 10px 10px 0 10px;
     flex-shrink: 0;
+    min-width: 580px; 
 }
-.settings-section-title { font-weight: bold; margin-bottom: 6px; }
-.settings-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
-.label { white-space: nowrap; }
+
+.settings-row { 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    margin-bottom: 6px; 
+    flex-wrap: nowrap; 
+}
+
+.settings-row > * {
+    flex-shrink: 0; 
+}
+
+/* ТОНКАЯ РАЗДЕЛИТЕЛЬНАЯ ЛИНИЯ (Идентична нижней грани панели) */
+.settings-divider {
+    border-top: 1px solid #7b7b7b;
+    margin: 6px 0;
+    flex-shrink: 0;
+}
+
+.label { 
+    white-space: nowrap; 
+}
 
 .select-blue {
     background-color: #0055ff;
@@ -178,7 +204,7 @@ body {
     padding: 3px 15px;
     font-size: 12px;
     cursor: pointer;
-    margin-left: auto;
+    margin-left: auto; 
 }
 
 .id-banner {
@@ -189,9 +215,10 @@ body {
     font-size: 12px;
     margin-bottom: 8px;
     border: 1px solid #5a5a5a;
+    white-space: nowrap;
 }
 
-/* СЕТКА С ПАРАМЕТРАМИ */
+/* Контейнер таблицы */
 .table-wrapper {
     flex: 1;
     overflow-y: auto;
@@ -210,6 +237,7 @@ body {
     color: #000000;
 }
 
+/* Шапка сохраняет свои границы */
 .modbus-grid th {
     background-color: #b8b8b8;
     position: relative; 
@@ -220,8 +248,9 @@ body {
     box-sizing: border-box;
 }
 
+/* Полностью чистая зона параметров без линий под шапкой */
 .modbus-grid td {
-    border: 1px solid #888888;
+    border: none !important; 
     padding: 6px;
     text-align: center;
     white-space: nowrap; 
@@ -235,7 +264,7 @@ body {
     background-color: #a6a6a6; 
 }
 
-/* УНИВЕРСАЛЬНЫЙ СТИЛЬ ДЛЯ ЗОН ЗАХВАТА МЫШИ */
+/* Стили зон захвата ресайзеров */
 .table-resizer {
     position: absolute;
     right: -3px; 
@@ -246,21 +275,18 @@ body {
     transition: background-color 0.1s;
 }
 
-/* Линии ресайза больших групп (проходят сквозь обе строки шапки) */
 .table-resizer.group-resizer {
     top: 0;
     height: 52px; 
-    z-index: 10; /* Приоритет выше, чтобы не перекрываться нижними ячейками */
+    z-index: 10;
 }
 
-/* Линии ресайза одиночных мелких колонок (только внутри своей ячейки) */
 .table-resizer.internal-resizer {
     top: 0;
     bottom: 0;
     z-index: 9;
 }
 
-/* Подсветка зоны синим цветом при наведении или перетаскивании */
 .table-resizer:hover, .table-resizer.active {
     background-color: #0055ff !important;
 }

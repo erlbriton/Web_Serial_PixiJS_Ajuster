@@ -29,8 +29,7 @@
 
             <div class="panel-content-wrapper">
                 
-                <div class="left-sidebar-column">
-                    </div>
+                <div class="left-sidebar-column"></div>
 
                 <div class="sidebar-resizer"></div>
 
@@ -69,6 +68,8 @@
                             <button class="inline-btn">Сегодня</button>
                         </div>
                         
+                        <div class="settings-divider"></div>
+                        
                         <div class="settings-row last-row">
                             <span class="label">Место установки</span>
                             <input type="text" class="input-text location-input" value="">
@@ -94,7 +95,7 @@
                             <thead>
                                 <tr>
                                     <th colspan="4" class="main-group">ПАРАМЕТРЫ</th>
-                                    <th colspan="2" class="main-group">БАЗА (Записать всё 💾)</th>
+                                    <th colspan="2" class="main-group">БАЗА</th>
                                     <th colspan="2" class="main-group">КОНТРОЛЛЕР</th>
                                 </tr>
                                 <tr>
@@ -130,35 +131,64 @@
     <script src="js/main.js"></script>
 
     <script>
-        // 1. Поведение осциллографа
+        const sidebar = document.querySelector('.left-sidebar-column');
+        const sidebarResizer = document.querySelector('.sidebar-resizer');
+        const wrapper = document.querySelector('.panel-content-wrapper');
+        const oscContainer = document.getElementById('osc-container');
+        
+        const MIN_RIGHT_PANEL_WIDTH = 610; 
+        const OSCILLOSCOPE_WIDTH = 900;
+
+        function enforceSidebarLimits() {
+            if (!sidebar || !wrapper) return;
+
+            const containerRect = wrapper.getBoundingClientRect();
+            const isOscHidden = oscContainer.classList.contains('hidden');
+            const virtualOscOffset = isOscHidden ? OSCILLOSCOPE_WIDTH : 0;
+            
+            let maxSidebarWidth = containerRect.width - virtualOscOffset - MIN_RIGHT_PANEL_WIDTH;
+            if (maxSidebarWidth < 40) maxSidebarWidth = 40;
+
+            if (sidebar.offsetWidth > maxSidebarWidth) {
+                sidebar.style.width = `${maxSidebarWidth}px`;
+            }
+        }
+
+        // Переключатель осциллографа
         document.getElementById('toggleOscBtn').addEventListener('click', () => {
-            const osc = document.getElementById('osc-container');
-            osc.classList.toggle('hidden');
+            oscContainer.classList.toggle('hidden');
+            enforceSidebarLimits();
             window.dispatchEvent(new Event('resize'));
         });
 
-        // 2. Ресайз большой левой колонки (Сайдбара)
-        const sidebarResizer = document.querySelector('.sidebar-resizer');
-        const sidebar = document.querySelector('.left-sidebar-column');
-        const wrapper = document.querySelector('.panel-content-wrapper');
+        window.addEventListener('resize', enforceSidebarLimits);
 
+        // РЕСАЙЗ САЙДБАРА
         if (sidebarResizer && sidebar) {
             sidebarResizer.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 sidebarResizer.classList.add('active');
-                document.body.style.cursor = 'col-resize';
+                document.body.classList.add('is-resizing');
 
                 const doDragSidebar = (moveEvent) => {
                     const containerRect = wrapper.getBoundingClientRect();
+                    const isOscHidden = oscContainer.classList.contains('hidden');
+                    const virtualOscOffset = isOscHidden ? OSCILLOSCOPE_WIDTH : 0;
+                    
+                    let maxSidebarWidth = containerRect.width - virtualOscOffset - MIN_RIGHT_PANEL_WIDTH;
+                    if (maxSidebarWidth < 40) maxSidebarWidth = 40;
+
                     let newWidth = moveEvent.clientX - containerRect.left;
-                    if (newWidth < 10) newWidth = 10; 
-                    if (newWidth > 600) newWidth = 600;
+                    
+                    if (newWidth < 40) newWidth = 40; 
+                    if (newWidth > maxSidebarWidth) newWidth = maxSidebarWidth;
+                    
                     sidebar.style.width = `${newWidth}px`;
                 };
 
                 const stopDragSidebar = () => {
                     sidebarResizer.classList.remove('active');
-                    document.body.style.cursor = '';
+                    document.body.classList.remove('is-resizing');
                     window.removeEventListener('mousemove', doDragSidebar);
                     window.removeEventListener('mouseup', stopDragSidebar);
                 };
@@ -168,15 +198,13 @@
             });
         }
 
-        // КЭШ ЭЛЕМЕНТОВ ТАБЛИЦЫ ДЛЯ ОБОИХ ТИПОВ РЕСАЙЗА
+        // Кэш таблицы для внутренних ресайзеров
         const table = document.querySelector('.modbus-grid');
         const mainHeaders = document.querySelectorAll('.modbus-grid thead tr:first-child th');
         const subHeaders = document.querySelectorAll('.modbus-grid thead tr:last-child th');
         const cols = document.querySelectorAll('.modbus-grid colgroup col');
 
-        // 3. ДОБАВЛЕНИЕ: РЕСАЙЗ ОДИНОЧНЫХ ВНУТРЕННИХ КОЛОНОК
-        // Указываем индексы подколонок, у которых должна двигаться правая граница
-        // Индексы 3 (Ед.изм) и 5 (Physical Базы) пропускаем, так как это границы главных групп!
+        // РЕСАЙЗ ОДИНОЧНЫХ ВНУТРЕННИХ КОЛОНОК
         const internalIndices = [0, 1, 2, 4, 6]; 
         
         internalIndices.forEach(idx => {
@@ -188,22 +216,19 @@
             resizer.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 resizer.classList.add('active');
+                document.body.classList.add('is-resizing');
 
                 const startX = e.clientX;
                 const totalTableWidth = table.offsetWidth;
-                
-                // Физические ширины двух соседних колонок
                 const startWidthLeft = subHeaders[idx].getBoundingClientRect().width;
                 const startWidthRight = subHeaders[idx + 1].getBoundingClientRect().width;
 
                 const doDragInternal = (moveEvent) => {
                     let delta = moveEvent.clientX - startX;
 
-                    // Ограничение минимальной ширины одиночной колонки — 30px
-                    if (startWidthLeft + delta < 30) delta = 30 - startWidthLeft;
-                    if (startWidthRight - delta < 30) delta = startWidthRight - 30;
+                    if (startWidthLeft + delta < 40) delta = 40 - startWidthLeft;
+                    if (startWidthRight - delta < 40) delta = startWidthRight - 40;
 
-                    // Переводим новые пиксельные значения обратно в проценты colgroup
                     const pctLeft = ((startWidthLeft + delta) / totalTableWidth) * 100;
                     const pctRight = ((startWidthRight - delta) / totalTableWidth) * 100;
 
@@ -213,6 +238,7 @@
 
                 const stopDragInternal = () => {
                     resizer.classList.remove('active');
+                    document.body.classList.remove('is-resizing');
                     window.removeEventListener('mousemove', doDragInternal);
                     window.removeEventListener('mouseup', stopDragInternal);
                 };
@@ -222,9 +248,9 @@
             });
         });
 
-        // 4. ГРУППОВОЙ РЕСАЙЗ ДЛЯ ГЛАВНЫХ РАЗДЕЛИТЕЛЕЙ (Параметры ↔ База ↔ Контроллер)
+        // ГРУППОВОЙ РЕСАЙЗ ДЛЯ ГЛАВНЫХ ГРУПП
         mainHeaders.forEach((th, groupIndex) => {
-            if (groupIndex === mainHeaders.length - 1) return; // Для "КОНТРОЛЛЕР" правый край зафиксирован
+            if (groupIndex === mainHeaders.length - 1) return; 
 
             const resizer = document.createElement('div');
             resizer.className = 'table-resizer group-resizer';
@@ -233,6 +259,7 @@
             resizer.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 resizer.classList.add('active');
+                document.body.classList.add('is-resizing');
                 
                 const startX = e.clientX;
                 const totalTableWidth = table.offsetWidth; 
@@ -241,14 +268,13 @@
                 let rightGroupCols = [];
 
                 if (groupIndex === 0) {
-                    leftGroupCols = [0, 1, 2, 3]; // Все подколонки группы ПАРАМЕТРЫ
-                    rightGroupCols = [4, 5];       // Все подколонки группы БАЗА
+                    leftGroupCols = [0, 1, 2, 3]; 
+                    rightGroupCols = [4, 5];       
                 } else if (groupIndex === 1) {
-                    leftGroupCols = [4, 5];       // Все подколонки группы БАЗА
-                    rightGroupCols = [6, 7];       // Все подколонки группы КОНТРОЛЛЕР
+                    leftGroupCols = [4, 5];       
+                    rightGroupCols = [6, 7];       
                 }
 
-                // Считываем физический размер каждой подколонки в группах
                 const startWidthsLeft = leftGroupCols.map(idx => subHeaders[idx].getBoundingClientRect().width);
                 const startWidthsRight = rightGroupCols.map(idx => subHeaders[idx].getBoundingClientRect().width);
 
@@ -260,30 +286,26 @@
                 const doDragGroup = (moveEvent) => {
                     let delta = moveEvent.clientX - startX;
                     
-                    // Лимит сжатия целой группы — минимум 80px
-                    if (totalStartWidthLeft + delta < 80) delta = 80 - totalStartWidthLeft;
-                    if (totalStartWidthRight - delta < 80) delta = totalStartWidthRight - 80;
+                    if (totalStartWidthLeft + delta < 90) delta = 90 - totalStartWidthLeft;
+                    if (totalStartWidthRight - delta < 90) delta = totalStartWidthRight - 90;
                     
                     const factorLeft = (totalStartWidthLeft + delta) / totalStartWidthLeft;
                     const factorRight = (totalStartWidthRight - delta) / totalStartWidthRight;
                     
-                    // Масштабируем левую группу пропорционально
                     leftGroupCols.forEach((colIdx, i) => {
                         const newWidthPx = startWidthsLeft[i] * factorLeft;
-                        const pct = (newWidthPx / totalTableWidth) * 100;
-                        cols[colIdx].style.width = `${pct}%`;
+                        cols[colIdx].style.width = `${(newWidthPx / totalTableWidth) * 100}%`;
                     });
                     
-                    // Масштабируем правую группу пропорционально
                     rightGroupCols.forEach((colIdx, i) => {
                         const newWidthPx = startWidthsRight[i] * factorRight;
-                        const pct = (newWidthPx / totalTableWidth) * 100;
-                        cols[colIdx].style.width = `${pct}%`;
+                        cols[colIdx].style.width = `${(newWidthPx / totalTableWidth) * 100}%`;
                     });
                 };
 
                 const stopDragGroup = () => {
                     resizer.classList.remove('active');
+                    document.body.classList.remove('is-resizing');
                     window.removeEventListener('mousemove', doDragGroup);
                     window.removeEventListener('mouseup', stopDragGroup);
                 };
@@ -292,6 +314,8 @@
                 window.addEventListener('mouseup', stopDragGroup);
             });
         });
+
+        enforceSidebarLimits();
     </script>
 </body>
 </html>
