@@ -1,46 +1,32 @@
+/* Настройки экрана */
 body { 
-    font-family: monospace; 
-    background: #0c0c0d; 
-    color: #00ff66; 
-    padding: 0; 
+    font-family: Arial, sans-serif; 
+    background: #b8b8b8; 
     margin: 0;
-    font-size: 16px; 
-    line-height: 1.5;
+    padding: 0;
     height: 100vh;
     box-sizing: border-box;
     overflow: hidden; 
 }
 
-button { 
-    background: #1a1a1a; 
-    color: #00ff66; 
-    border: 1px solid #00ff66; 
-    padding: 10px 20px; 
-    font-family: monospace; 
-    font-weight: bold; 
-    cursor: pointer; 
+/* Глобальный контейнер: Осциллограф + Таблица */
+.app-layout {
+    display: flex;
+    width: 100%;
+    height: 100%;
 }
 
-button:hover { 
-    background: #00ff66; 
-    color: #0c0c0d; 
-}
-      
+/* НАСТОЯЩИЙ ОСЦИЛЛОГРАФ (слева на экране) */
 #osc-container { 
-    border: 2px solid #222; 
+    width: 900px;
+    height: 100%;
     background: #050505;
-    width: 900px; 
-    height: calc(100vh - 40px); 
-    margin: 20px 0 20px 20px; 
+    border-right: 3px solid #000000; 
     box-sizing: border-box;
-    flex-shrink: 0; /* Запрещаем flex-контейнеру сжимать осциллограф */
+    flex-shrink: 0;
 }
 
-/* ИСПРАВЛЕННЫЙ КЛАСС СКРЫТИЯ:
-  Вместо display: none мы убираем его из видимости и перемещаем далеко влево.
-  Благодаря этому PixiJS при старте видит честные 900px ширины, 
-  успешно строит сетку, запускает графики и ждет клика.
-*/
+/* Безопасное скрытие осциллографа для PixiJS */
 #osc-container.hidden {
     position: absolute !important;
     visibility: hidden !important;
@@ -48,61 +34,185 @@ button:hover {
     left: -9999px !important;
 }
 
-/* Главный контейнер для разделения экрана */
-.app-layout {
-    display: flex;
-    width: 100%;
-    height: 100%;
-}
-
-/* Правая часть приложения с таблицей */
+/* ИНТЕРАКТИВНАЯ ТАБЛИЦА (весь правый блок) */
 .panel-right {
-    flex: 1; 
-    height: 100vh;
+    flex: 1; /* Занимает всё доступное место на экране */
+    height: 100%;
     display: flex;
-    flex-direction: column;
+    flex-direction: column; 
+    background-color: #b8b8b8;
     box-sizing: border-box;
-    padding: 20px; 
+    overflow: hidden;
 }
 
-/* Тулбар, где лежат ваши кнопки */
-.toolbar {
+/* ТУЛБАР ТАБЛИЦЫ: Растянут строго по ширине .panel-right */
+.top-main-toolbar {
+    width: 100%;
+    background-color: #aeaeae;
+    padding: 5px 10px;
+    border-bottom: 2px solid #7b7b7b;
     display: flex;
-    gap: 15px;
-    margin-bottom: 20px;
+    align-items: center;
+    gap: 5px;
+    box-sizing: border-box;
+    flex-shrink: 0;
 }
 
-/* Обертка для таблицы с вертикальным скроллом */
+.tool-btn {
+    background: #c6c6c6;
+    border: 1px solid #7b7b7b;
+    color: #000000;
+    font-size: 14px;
+    padding: 3px 10px;
+    cursor: pointer;
+    font-weight: bold;
+}
+.tool-btn:hover { background: #e1e1e1; }
+
+.action-btn {
+    background: #bfbfbf;
+    border: 1px solid #707070;
+    color: #000000;
+    font-size: 12px;
+    padding: 4px 12px;
+    cursor: pointer;
+    font-weight: bold;
+}
+.action-btn:hover { background: #d8d8d8; }
+
+
+/* ОБЕРТКА ВНУТРЕННОСТЕЙ ТАБЛИЦЫ ПОД ТУЛБАРОМ */
+.panel-content-wrapper {
+    display: flex; /* Делит пространство под кнопками на левую колонку и правую область */
+    flex: 1;
+    width: 100%;
+    overflow: hidden;
+    box-sizing: border-box;
+}
+
+/* ВНУТРЕННЯЯ ЛЕВАЯ КОЛОНКА ТАБЛИЦЫ */
+.left-sidebar-column {
+    width: 220px; /* Фиксированная ширина */
+    height: 100%;
+    background-color: #ffffff; /* Чистый белый фон, как на макете */
+    border-right: 3px solid #000000; /* Черная вертикальная черта */
+    box-sizing: border-box;
+    flex-shrink: 0;
+}
+
+/* ВНУТРЕННЯЯ ПРАВАЯ ОБЛАСТЬ (Настройки + Таблица параметров) */
+.right-main-content {
+    flex: 1;
+    height: 100%;
+    display: flex;
+    flex-direction: column; 
+    box-sizing: border-box;
+}
+
+
+/* НАСТРОЕЧНАЯ ПАНЕЛЬ СВЯЗИ */
+.settings-panel {
+    background-color: #c6c6c6;
+    border: 1px solid #7b7b7b;
+    padding: 6px 10px;
+    font-size: 12px;
+    color: #000000;
+    margin: 10px 10px 0 10px;
+}
+
+.settings-section-title { font-weight: bold; margin-bottom: 6px; }
+.settings-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.label { white-space: nowrap; }
+
+.select-blue {
+    background-color: #0055ff;
+    color: #ffffff;
+    border: 1px solid #7b7b7b;
+    font-weight: bold;
+    font-size: 12px;
+    padding: 2px;
+}
+.select-gray {
+    background-color: #e1e1e1;
+    color: #000000;
+    border: 1px solid #7b7b7b;
+    padding: 2px;
+    width: 55px;
+    text-align: center;
+}
+.input-text {
+    background: #ffffff;
+    border: 1px solid #7b7b7b;
+    color: #000000;
+    padding: 2px 6px;
+    font-size: 12px;
+}
+.frame-input { width: 40px; text-align: center; }
+.address-input { width: 50px; text-align: center; }
+.mechanism-input { width: 130px; }
+.date-input { width: 90px; text-align: center; }
+.location-input { width: 120px; }
+
+.inline-btn {
+    background: #bfbfbf;
+    border: 1px solid #7b7b7b;
+    color: #000000;
+    padding: 3px 10px;
+    font-size: 12px;
+    cursor: pointer;
+}
+.inline-btn:hover { background: #dfdfdf; }
+
+.refresh-btn {
+    background: #bfbfbf;
+    border: 1px solid #0055ff;
+    color: #000000;
+    font-weight: bold;
+    padding: 3px 15px;
+    font-size: 12px;
+    cursor: pointer;
+    margin-left: auto;
+}
+
+.id-banner {
+    background-color: #7b7b7b;
+    color: #ffffff;
+    font-weight: bold;
+    padding: 4px 8px;
+    font-size: 12px;
+    margin-bottom: 8px;
+    border: 1px solid #5a5a5a;
+}
+
+
+/* СЕТКА С ПАРАМЕТРАМИ */
 .table-wrapper {
     flex: 1;
     overflow-y: auto;
+    background-color: #ffffff;
+    border: 1px solid #7b7b7b;
+    margin: 10px;
 }
 
-/* Внешний вид интерактивной сетки Modbus */
 .modbus-grid {
     width: 100%;
     border-collapse: collapse;
-    font-family: Arial, sans-serif; 
-    font-size: 13px;
+    font-size: 12px;
     background-color: #ffffff;
-    color: #000000; 
-}
-
-.modbus-grid th {
-    border: 1px solid #444444;
-    padding: 6px;
-    background-color: #cccccc; 
-    text-align: center;
-    font-weight: bold;
     color: #000000;
 }
 
-.modbus-grid .main-group {
-    background-color: #b5b5b5; 
+.modbus-grid th {
+    border: 1px solid #555555;
+    padding: 6px;
+    background-color: #b8b8b8;
+    text-align: center;
 }
 
+.modbus-grid .main-group { background-color: #a6a6a6; }
+
 .modbus-grid td {
-    border: 1px solid #666666;
-    padding: 5px 8px;
-    background-color: #ffffff;
+    border: 1px solid #888888;
+    height: 24px;
+    padding: 2px 6px;
 }

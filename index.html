@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Web_Serial_PixiJS_Ajuster</title>
+    <title>Web_Serial_Interface</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.4.2/pixi.min.js"></script>
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -14,61 +14,106 @@
 
         <div class="panel-right">
             
-            <div class="toolbar">
-                <button id="connectBtn">ОТКРЫТЬ ПОРТ И ЗАПУСТИТЬ ТЕСТ</button>
+            <div class="top-main-toolbar">
+                <button class="tool-btn">🔧 ▾</button>
+                <button class="tool-btn">🔍</button>
+                <button class="tool-btn">📋</button>
+                <button id="toggleOscBtn" class="tool-btn">📈 ▾</button>
+                <button class="tool-btn">💾</button>
+                <button class="tool-btn">📦 ▾</button>
+                <button class="tool-btn">📁 ▾</button>
                 
-                <button id="toggleOscBtn">📈 ОСЦИЛЛОГРАФ</button>
+                <button id="connectBtn" class="action-btn">подключиться</button>
+                <button class="action-btn">ID</button>
             </div>
 
-            <div class="table-wrapper">
-                <table class="modbus-grid">
-                    <thead>
-                        <tr>
-                            <th colspan="4" class="main-group">ПАРАМЕТРЫ</th>
-                            <th colspan="2" class="main-group">БАЗА </th>
-                            <th colspan="2" class="main-group">КОНТРОЛЛЕР</th>
-                        </tr>
-                        <tr>
-                            <th style="width: 40px;">№</th>
-                            <th style="width: 120px;">Имя</th>
-                            <th>Описание</th>
-                            <th style="width: 70px;">Ед.изм</th>
-                            <th style="width: 90px;">hex</th>
-                            <th style="width: 100px;">Physical</th>
-                            <th style="width: 90px;">hex</th>
-                            <th style="width: 100px;">Physical</th>
-                        </tr>
-                    </thead>
-                    <tbody id="grid-data-rows">
-                        <tr>
-                            <td>1</td>
-                            <td>Развертка_X</td>
-                            <td>Тестовый параметр для проверки сетки Modbus</td>
-                            <td>мс</td>
-                            <td>0x0014</td>
-                            <td>20.0</td>
-                            <td>0x0014</td>
-                            <td>20.0</td>
-                        </tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
+            <div class="panel-content-wrapper">
+                
+                <div class="left-sidebar-column">
+                    </div>
 
-    <script src="js/oscilloscope/ringBuffer.js"></script>
+                <div class="right-main-content">
+                    
+                    <div class="settings-panel">
+                        <div class="settings-section-title">Настройки связи</div>
+                        
+                        <div class="settings-row">
+                            <span class="label">BUS</span>
+                            <select class="select-blue"><option>MODBUS RTU</option></select>
+                            
+                            <span class="label">COM</span>
+                            <select class="select-gray"><option>—</option></select>
+                            
+                            <span class="label">BPS</span>
+                            <select class="select-blue"><option>115200</option></select>
+                            
+                            <span class="label">FrameEnd</span>
+                            <input type="text" class="input-text frame-input" value="20">
+                            
+                            <span class="label">Адрес</span>
+                            <input type="text" class="input-text address-input" value="x01">
+                        </div>
+                        
+                        <div class="id-banner">
+                            ID: <span>—</span>
+                        </div>
+                        
+                        <div class="settings-row">
+                            <span class="label">Тип механизма</span>
+                            <input type="text" class="input-text mechanism-input" value="Не указан">
+                            
+                            <span class="label">Дата</span>
+                            <input type="text" class="input-text date-input" value="29.01.1964">
+                            <button class="inline-btn">Сегодня</button>
+                        </div>
+                        
+                        <div class="settings-row last-row">
+                            <span class="label">Место установки</span>
+                            <input type="text" class="input-text location-input" value="">
+                            
+                            <button class="inline-btn">Сохранить изменения</button>
+                            
+                            <button class="refresh-btn">🔄 Обновить</button>
+                        </div>
+                    </div>
+
+                    <div class="table-wrapper">
+                        <table class="modbus-grid">
+                            <thead>
+                                <tr>
+                                    <th colspan="4" class="main-group">ПАРАМЕТРЫ</th>
+                                    <th colspan="2" class="main-group">БАЗА (Записать всё 💾)</th>
+                                    <th colspan="2" class="main-group">КОНТРОЛЛЕР</th>
+                                </tr>
+                                <tr>
+                                    <th style="width: 45px;">№</th>
+                                    <th style="width: 100px;">Имя</th>
+                                    <th>Описание</th>
+                                    <th style="width: 65px;">Ед.изм</th>
+                                    <th style="width: 85px;">hex</th>
+                                    <th style="width: 110px;">Physical</th>
+                                    <th style="width: 85px;">hex</th>
+                                    <th style="width: 110px;">Physical</th>
+                                </tr>
+                            </thead>
+                            <tbody id="grid-data-rows">
+                                <tr>
+                                    <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </div> </div> </div> </div> <script src="js/oscilloscope/ringBuffer.js"></script>
     <script src="js/oscilloscope/pixiOscilloscope.js"></script>
-    
     <script src="js/serial/serial.js"></script>
     <script src="js/serial/modbus.js"></script>
-    
     <script src="js/main.js"></script>
 
     <script>
         document.getElementById('toggleOscBtn').addEventListener('click', () => {
             const osc = document.getElementById('osc-container');
             osc.classList.toggle('hidden');
-            // Сообщаем PixiJS, что экран изменился, чтобы график пересчитал ширину
             window.dispatchEvent(new Event('resize'));
         });
     </script>
