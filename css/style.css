@@ -290,3 +290,24 @@ body.is-resizing {
 .table-resizer:hover, .table-resizer.active {
     background-color: #0055ff !important;
 }
+
+/* ==========================================================================
+   Всплывающая подсказка (Tooltip)
+   ========================================================================== */
+.app-tooltip {
+    display: none;                /* Скрыто по умолчанию */
+    position: fixed !important;    /* Фиксация относительно окна браузера */
+    z-index: 99999999 !important; /* Выше любого другого элемента на странице */
+    pointer-events: none !important; /* Чтобы мышь проходила «сквозь» подсказку */
+    
+    /* Оформление (в стиле вашего интерфейса) */
+    background-color: #1e1e1e;
+    color: #f5f5f5;
+    padding: 8px 12px;
+    border-radius: 4px;
+    border: 1px solid #ffffff;
+    font-size: 13px;
+    font-family: Arial, sans-serif;
+    white-space: nowrap;          /* Чтобы текст не переносился */
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+}
