@@ -1,4 +1,4 @@
-/* Настройки экрана */
+/* Базовые параметры */
 body { 
     font-family: Arial, sans-serif; 
     background: #b8b8b8; 
@@ -9,14 +9,13 @@ body {
     overflow: hidden; 
 }
 
-/* Глобальный контейнер: Осциллограф + Таблица */
 .app-layout {
     display: flex;
     width: 100%;
     height: 100%;
 }
 
-/* НАСТОЯЩИЙ ОСЦИЛЛОГРАФ (слева на экране) */
+/* Осциллограф */
 #osc-container { 
     width: 900px;
     height: 100%;
@@ -25,8 +24,6 @@ body {
     box-sizing: border-box;
     flex-shrink: 0;
 }
-
-/* Безопасное скрытие осциллографа для PixiJS */
 #osc-container.hidden {
     position: absolute !important;
     visibility: hidden !important;
@@ -34,9 +31,9 @@ body {
     left: -9999px !important;
 }
 
-/* ИНТЕРАКТИВНАЯ ТАБЛИЦА (весь правый блок) */
+/* Компонент таблицы */
 .panel-right {
-    flex: 1; /* Занимает всё доступное место на экране */
+    flex: 1;
     height: 100%;
     display: flex;
     flex-direction: column; 
@@ -45,7 +42,6 @@ body {
     overflow: hidden;
 }
 
-/* ТУЛБАР ТАБЛИЦЫ: Растянут строго по ширине .panel-right */
 .top-main-toolbar {
     width: 100%;
     background-color: #aeaeae;
@@ -80,37 +76,48 @@ body {
 }
 .action-btn:hover { background: #d8d8d8; }
 
-
-/* ОБЕРТКА ВНУТРЕННОСТЕЙ ТАБЛИЦЫ ПОД ТУЛБАРОМ */
 .panel-content-wrapper {
-    display: flex; /* Делит пространство под кнопками на левую колонку и правую область */
+    display: flex; 
     flex: 1;
     width: 100%;
     overflow: hidden;
     box-sizing: border-box;
 }
 
-/* ВНУТРЕННЯЯ ЛЕВАЯ КОЛОНКА ТАБЛИЦЫ */
+/* БОЛЬШАЯ ЛЕВАЯ КОЛОНКА (САЙДБАР) */
 .left-sidebar-column {
-    width: 220px; /* Фиксированная ширина */
+    width: 220px; /* Стартовая ширина */
     height: 100%;
-    background-color: #ffffff; /* Чистый белый фон, как на макете */
-    border-right: 3px solid #000000; /* Черная вертикальная черта */
+    background-color: #ffffff;
     box-sizing: border-box;
     flex-shrink: 0;
 }
 
-/* ВНУТРЕННЯЯ ПРАВАЯ ОБЛАСТЬ (Настройки + Таблица параметров) */
+/* ИНТЕРАКТИВНЫЙ РАЗДЕЛИТЕЛЬ СНOverlay */
+.sidebar-resizer {
+    width: 4px;
+    background-color: #000000;
+    cursor: col-resize;
+    flex-shrink: 0;
+    z-index: 10;
+    transition: background-color 0.15s, width 0.15s;
+}
+.sidebar-resizer:hover, .sidebar-resizer.active {
+    background-color: #0055ff !important;
+    width: 6px; 
+}
+
+/* Внутренний контент справа */
 .right-main-content {
     flex: 1;
     height: 100%;
     display: flex;
     flex-direction: column; 
     box-sizing: border-box;
+    overflow: hidden;
 }
 
-
-/* НАСТРОЕЧНАЯ ПАНЕЛЬ СВЯЗИ */
+/* Настройки */
 .settings-panel {
     background-color: #c6c6c6;
     border: 1px solid #7b7b7b;
@@ -118,8 +125,8 @@ body {
     font-size: 12px;
     color: #000000;
     margin: 10px 10px 0 10px;
+    flex-shrink: 0;
 }
-
 .settings-section-title { font-weight: bold; margin-bottom: 6px; }
 .settings-row { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
 .label { white-space: nowrap; }
@@ -184,35 +191,74 @@ body {
     border: 1px solid #5a5a5a;
 }
 
-
 /* СЕТКА С ПАРАМЕТРАМИ */
 .table-wrapper {
     flex: 1;
     overflow-y: auto;
+    overflow-x: hidden; /* Скролл больше не нужен, таблица всегда идеальна по ширине экрана */
     background-color: #ffffff;
     border: 1px solid #7b7b7b;
     margin: 10px;
 }
 
 .modbus-grid {
-    width: 100%;
+    table-layout: fixed; /* Режим жестких границ — игнорирует длину контента */
+    width: 100%;         /* Всегда растянута ровно на 100% контейнера */
     border-collapse: collapse;
     font-size: 12px;
     background-color: #ffffff;
     color: #000000;
 }
 
-.modbus-grid th {
-    border: 1px solid #555555;
-    padding: 6px;
-    background-color: #b8b8b8;
-    text-align: center;
+.modbus-grid thead tr:last-child th {
+    position: relative; 
 }
 
-.modbus-grid .main-group { background-color: #a6a6a6; }
+.modbus-grid th, .modbus-grid td {
+    border: 1px solid #555555;
+    padding: 6px;
+    text-align: center;
+    
+    /* Контент молча и аккуратно обрезается, если ячейка становится меньше его длины */
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: clip; 
+    box-sizing: border-box;
+}
+
+.modbus-grid th {
+    background-color: #b8b8b8;
+}
+
+.modbus-grid .main-group { 
+    background-color: #a6a6a6; 
+}
 
 .modbus-grid td {
     border: 1px solid #888888;
     height: 24px;
-    padding: 2px 6px;
+}
+
+/* ЗОНЫ ЗАХВАТА МЫШИ ДЛЯ КОЛОНОК */
+.table-resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: 6px; 
+    cursor: col-resize;
+    user-select: none;
+    z-index: 5;
+    background-color: transparent;
+    transition: background-color 0.1s;
+}
+
+/* Подсветка синим цветом при наведении/захвате */
+.table-resizer:hover, .table-resizer.active {
+    background-color: #0055ff !important;
+}
+
+/* Визуальный маркер на самой ячейке при ресайзе */
+.resizing-th {
+    border-right: 2px solid #0055ff !important;
 }

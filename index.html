@@ -32,6 +32,8 @@
                 <div class="left-sidebar-column">
                     </div>
 
+                <div class="sidebar-resizer"></div>
+
                 <div class="right-main-content">
                     
                     <div class="settings-panel">
@@ -79,6 +81,16 @@
 
                     <div class="table-wrapper">
                         <table class="modbus-grid">
+                            <colgroup>
+                                <col style="width: 5.3%;">
+                                <col style="width: 11.7%;">
+                                <col style="width: 29.4%;">
+                                <col style="width: 7.7%;">
+                                <col style="width: 10.0%;">
+                                <col style="width: 13.0%;">
+                                <col style="width: 10.0%;">
+                                <col style="width: 12.9%;">
+                            </colgroup>
                             <thead>
                                 <tr>
                                     <th colspan="4" class="main-group">ПАРАМЕТРЫ</th>
@@ -86,19 +98,26 @@
                                     <th colspan="2" class="main-group">КОНТРОЛЛЕР</th>
                                 </tr>
                                 <tr>
-                                    <th style="width: 45px;">№</th>
-                                    <th style="width: 100px;">Имя</th>
+                                    <th>№</th>
+                                    <th>Имя</th>
                                     <th>Описание</th>
-                                    <th style="width: 65px;">Ед.изм</th>
-                                    <th style="width: 85px;">hex</th>
-                                    <th style="width: 110px;">Physical</th>
-                                    <th style="width: 85px;">hex</th>
-                                    <th style="width: 110px;">Physical</th>
+                                    <th>Ед.изм</th>
+                                    <th>hex</th>
+                                    <th>Physical</th>
+                                    <th>hex</th>
+                                    <th>Physical</th>
                                 </tr>
                             </thead>
                             <tbody id="grid-data-rows">
                                 <tr>
-                                    <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td>
+                                    <td>1</td>
+                                    <td>ДлинноеИмяПараметраПользователя</td>
+                                    <td>Очень длинное описание параметра, которое теперь беспрепятственно обрезается при сжатии</td>
+                                    <td>В</td>
+                                    <td>0x00</td>
+                                    <td>0.0</td>
+                                    <td>0x00</td>
+                                    <td>0.0</td>
                                 </tr>
                             </tbody>
                         </table>
@@ -111,10 +130,105 @@
     <script src="js/main.js"></script>
 
     <script>
+        // 1. Поведение осциллографа
         document.getElementById('toggleOscBtn').addEventListener('click', () => {
             const osc = document.getElementById('osc-container');
             osc.classList.toggle('hidden');
             window.dispatchEvent(new Event('resize'));
+        });
+
+        // 2. Ресайз большой левой колонки (Сайдбара)
+        // При изменении этой ширины вся таблица и её колонки масштабируются пропорционально силами CSS
+        const sidebarResizer = document.querySelector('.sidebar-resizer');
+        const sidebar = document.querySelector('.left-sidebar-column');
+        const wrapper = document.querySelector('.panel-content-wrapper');
+
+        if (sidebarResizer && sidebar) {
+            sidebarResizer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                sidebarResizer.classList.add('active');
+                document.body.style.cursor = 'col-resize';
+
+                const doDragSidebar = (moveEvent) => {
+                    const containerRect = wrapper.getBoundingClientRect();
+                    let newWidth = moveEvent.clientX - containerRect.left;
+                    if (newWidth < 10) newWidth = 10; // Сжатие почти до нуля
+                    if (newWidth > 600) newWidth = 600;
+                    sidebar.style.width = `${newWidth}px`;
+                };
+
+                const stopDragSidebar = () => {
+                    sidebarResizer.classList.remove('active');
+                    document.body.style.cursor = '';
+                    window.removeEventListener('mousemove', doDragSidebar);
+                    window.removeEventListener('mouseup', stopDragSidebar);
+                };
+
+                window.addEventListener('mousemove', doDragSidebar);
+                window.addEventListener('mouseup', stopDragSidebar);
+            });
+        }
+
+        // 3. Умный ресайз внутренних колонок таблицы параметров
+        const table = document.querySelector('.modbus-grid');
+        const gridHeaders = document.querySelectorAll('.modbus-grid thead tr:last-child th');
+        const cols = document.querySelectorAll('.modbus-grid colgroup col');
+        
+        gridHeaders.forEach((th, index) => {
+            // Для самой последней колонки ресайзер справа не нужен, так как таблица зажата в 100% ширины
+            if (index === gridHeaders.length - 1) return;
+
+            const resizer = document.createElement('div');
+            resizer.className = 'table-resizer';
+            th.appendChild(resizer);
+
+            resizer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                resizer.classList.add('active');
+                th.classList.add('resizing-th');
+                
+                const startX = e.clientX;
+                const totalTableWidth = table.offsetWidth; // Текущая физическая ширина таблицы в px
+                
+                // Фиксируем стартовую ширину текущей и следующей колонки в пикселях
+                const startWidthCurrent = cols[index].getBoundingClientRect().width;
+                const startWidthNext = cols[index + 1].getBoundingClientRect().width;
+
+                const doDragColumn = (moveEvent) => {
+                    const delta = moveEvent.clientX - startX;
+                    
+                    let newWidthCurrent = startWidthCurrent + delta;
+                    let newWidthNext = startWidthNext - delta;
+                    
+                    // Защита от полного исчезновения колонки (микро-лимит 10px)
+                    if (newWidthCurrent < 10) {
+                        newWidthNext += (newWidthCurrent - 10);
+                        newWidthCurrent = 10;
+                    }
+                    if (newWidthNext < 10) {
+                        newWidthCurrent += (newWidthNext - 10);
+                        newWidthNext = 10;
+                    }
+                    
+                    // Переводим новые пиксельные значения обратно в % относительно живой ширины таблицы
+                    const pctCurrent = (newWidthCurrent / totalTableWidth) * 100;
+                    const pctNext = (newWidthNext / totalTableWidth) * 100;
+                    
+                    // Одновременно обновляем две смежные колонки. Сумма процентов остается неизменной (100%)
+                    cols[index].style.width = `${pctCurrent}%`;
+                    cols[index + 1].style.width = `${pctNext}%`;
+                };
+
+                const stopDragColumn = () => {
+                    resizer.classList.remove('active');
+                    th.classList.remove('resizing-th');
+                    window.removeEventListener('mousemove', doDragColumn);
+                    window.removeEventListener('mouseup', stopDragColumn);
+                };
+
+                window.addEventListener('mousemove', doDragColumn);
+                window.addEventListener('mouseup', stopDragColumn);
+            });
         });
     </script>
 </body>
