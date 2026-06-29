@@ -8,9 +8,53 @@
 </head>
 <body>
 
-    <button id="connectBtn">ОТКРЫТЬ ПОРТ И ЗАПУСТИТЬ ТЕСТ</button>
+    <div class="app-layout">
+        
+        <div id="osc-container" class="hidden"></div>
 
-    <div id="osc-container"></div>
+        <div class="panel-right">
+            
+            <div class="toolbar">
+                <button id="connectBtn">ОТКРЫТЬ ПОРТ И ЗАПУСТИТЬ ТЕСТ</button>
+                
+                <button id="toggleOscBtn">📈 ОСЦИЛЛОГРАФ</button>
+            </div>
+
+            <div class="table-wrapper">
+                <table class="modbus-grid">
+                    <thead>
+                        <tr>
+                            <th colspan="4" class="main-group">ПАРАМЕТРЫ</th>
+                            <th colspan="2" class="main-group">БАЗА </th>
+                            <th colspan="2" class="main-group">КОНТРОЛЛЕР</th>
+                        </tr>
+                        <tr>
+                            <th style="width: 40px;">№</th>
+                            <th style="width: 120px;">Имя</th>
+                            <th>Описание</th>
+                            <th style="width: 70px;">Ед.изм</th>
+                            <th style="width: 90px;">hex</th>
+                            <th style="width: 100px;">Physical</th>
+                            <th style="width: 90px;">hex</th>
+                            <th style="width: 100px;">Physical</th>
+                        </tr>
+                    </thead>
+                    <tbody id="grid-data-rows">
+                        <tr>
+                            <td>1</td>
+                            <td>Развертка_X</td>
+                            <td>Тестовый параметр для проверки сетки Modbus</td>
+                            <td>мс</td>
+                            <td>0x0014</td>
+                            <td>20.0</td>
+                            <td>0x0014</td>
+                            <td>20.0</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
 
     <script src="js/oscilloscope/ringBuffer.js"></script>
     <script src="js/oscilloscope/pixiOscilloscope.js"></script>
@@ -19,5 +63,14 @@
     <script src="js/serial/modbus.js"></script>
     
     <script src="js/main.js"></script>
+
+    <script>
+        document.getElementById('toggleOscBtn').addEventListener('click', () => {
+            const osc = document.getElementById('osc-container');
+            osc.classList.toggle('hidden');
+            // Сообщаем PixiJS, что экран изменился, чтобы график пересчитал ширину
+            window.dispatchEvent(new Event('resize'));
+        });
+    </script>
 </body>
 </html>
