@@ -86,14 +86,14 @@ body {
 
 /* БОЛЬШАЯ ЛЕВАЯ КОЛОНКА (САЙДБАР) */
 .left-sidebar-column {
-    width: 220px; /* Стартовая ширина */
+    width: 220px; 
     height: 100%;
     background-color: #ffffff;
     box-sizing: border-box;
     flex-shrink: 0;
 }
 
-/* ИНТЕРАКТИВНЫЙ РАЗДЕЛИТЕЛЬ СНOverlay */
+/* ИНТЕРАКТИВНЫЙ РАЗДЕЛИТЕЛЬ САЙДБАРA */
 .sidebar-resizer {
     width: 4px;
     background-color: #000000;
@@ -195,70 +195,72 @@ body {
 .table-wrapper {
     flex: 1;
     overflow-y: auto;
-    overflow-x: hidden; /* Скролл больше не нужен, таблица всегда идеальна по ширине экрана */
+    overflow-x: hidden; 
     background-color: #ffffff;
     border: 1px solid #7b7b7b;
     margin: 10px;
 }
 
 .modbus-grid {
-    table-layout: fixed; /* Режим жестких границ — игнорирует длину контента */
-    width: 100%;         /* Всегда растянута ровно на 100% контейнера */
+    table-layout: fixed; 
+    width: 100%;         
     border-collapse: collapse;
     font-size: 12px;
     background-color: #ffffff;
     color: #000000;
 }
 
-.modbus-grid thead tr:last-child th {
+.modbus-grid th {
+    background-color: #b8b8b8;
     position: relative; 
-}
-
-.modbus-grid th, .modbus-grid td {
     border: 1px solid #555555;
     padding: 6px;
     text-align: center;
-    
-    /* Контент молча и аккуратно обрезается, если ячейка становится меньше его длины */
+    white-space: nowrap;
+    box-sizing: border-box;
+}
+
+.modbus-grid td {
+    border: 1px solid #888888;
+    padding: 6px;
+    text-align: center;
     white-space: nowrap; 
     overflow: hidden; 
     text-overflow: clip; 
     box-sizing: border-box;
-}
-
-.modbus-grid th {
-    background-color: #b8b8b8;
+    height: 24px;
 }
 
 .modbus-grid .main-group { 
     background-color: #a6a6a6; 
 }
 
-.modbus-grid td {
-    border: 1px solid #888888;
-    height: 24px;
-}
-
-/* ЗОНЫ ЗАХВАТА МЫШИ ДЛЯ КОЛОНОК */
+/* УНИВЕРСАЛЬНЫЙ СТИЛЬ ДЛЯ ЗОН ЗАХВАТА МЫШИ */
 .table-resizer {
     position: absolute;
-    right: 0;
-    top: 0;
-    bottom: 0;
+    right: -3px; 
     width: 6px; 
     cursor: col-resize;
     user-select: none;
-    z-index: 5;
     background-color: transparent;
     transition: background-color 0.1s;
 }
 
-/* Подсветка синим цветом при наведении/захвате */
-.table-resizer:hover, .table-resizer.active {
-    background-color: #0055ff !important;
+/* Линии ресайза больших групп (проходят сквозь обе строки шапки) */
+.table-resizer.group-resizer {
+    top: 0;
+    height: 52px; 
+    z-index: 10; /* Приоритет выше, чтобы не перекрываться нижними ячейками */
 }
 
-/* Визуальный маркер на самой ячейке при ресайзе */
-.resizing-th {
-    border-right: 2px solid #0055ff !important;
+/* Линии ресайза одиночных мелких колонок (только внутри своей ячейки) */
+.table-resizer.internal-resizer {
+    top: 0;
+    bottom: 0;
+    z-index: 9;
+}
+
+/* Подсветка зоны синим цветом при наведении или перетаскивании */
+.table-resizer:hover, .table-resizer.active {
+    background-color: #0055ff !important;
 }

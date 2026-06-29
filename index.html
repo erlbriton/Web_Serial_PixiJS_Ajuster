@@ -82,14 +82,14 @@
                     <div class="table-wrapper">
                         <table class="modbus-grid">
                             <colgroup>
-                                <col style="width: 5.3%;">
-                                <col style="width: 11.7%;">
-                                <col style="width: 29.4%;">
-                                <col style="width: 7.7%;">
+                                <col style="width: 6.0%;">
+                                <col style="width: 12.0%;">
+                                <col style="width: 28.0%;">
+                                <col style="width: 8.0%;">
                                 <col style="width: 10.0%;">
                                 <col style="width: 13.0%;">
                                 <col style="width: 10.0%;">
-                                <col style="width: 12.9%;">
+                                <col style="width: 13.0%;">
                             </colgroup>
                             <thead>
                                 <tr>
@@ -138,7 +138,6 @@
         });
 
         // 2. Ресайз большой левой колонки (Сайдбара)
-        // При изменении этой ширины вся таблица и её колонки масштабируются пропорционально силами CSS
         const sidebarResizer = document.querySelector('.sidebar-resizer');
         const sidebar = document.querySelector('.left-sidebar-column');
         const wrapper = document.querySelector('.panel-content-wrapper');
@@ -152,7 +151,7 @@
                 const doDragSidebar = (moveEvent) => {
                     const containerRect = wrapper.getBoundingClientRect();
                     let newWidth = moveEvent.clientX - containerRect.left;
-                    if (newWidth < 10) newWidth = 10; // Сжатие почти до нуля
+                    if (newWidth < 10) newWidth = 10; 
                     if (newWidth > 600) newWidth = 600;
                     sidebar.style.width = `${newWidth}px`;
                 };
@@ -169,65 +168,128 @@
             });
         }
 
-        // 3. Умный ресайз внутренних колонок таблицы параметров
+        // КЭШ ЭЛЕМЕНТОВ ТАБЛИЦЫ ДЛЯ ОБОИХ ТИПОВ РЕСАЙЗА
         const table = document.querySelector('.modbus-grid');
-        const gridHeaders = document.querySelectorAll('.modbus-grid thead tr:last-child th');
+        const mainHeaders = document.querySelectorAll('.modbus-grid thead tr:first-child th');
+        const subHeaders = document.querySelectorAll('.modbus-grid thead tr:last-child th');
         const cols = document.querySelectorAll('.modbus-grid colgroup col');
-        
-        gridHeaders.forEach((th, index) => {
-            // Для самой последней колонки ресайзер справа не нужен, так как таблица зажата в 100% ширины
-            if (index === gridHeaders.length - 1) return;
 
+        // 3. ДОБАВЛЕНИЕ: РЕСАЙЗ ОДИНОЧНЫХ ВНУТРЕННИХ КОЛОНОК
+        // Указываем индексы подколонок, у которых должна двигаться правая граница
+        // Индексы 3 (Ед.изм) и 5 (Physical Базы) пропускаем, так как это границы главных групп!
+        const internalIndices = [0, 1, 2, 4, 6]; 
+        
+        internalIndices.forEach(idx => {
+            const th = subHeaders[idx];
             const resizer = document.createElement('div');
-            resizer.className = 'table-resizer';
+            resizer.className = 'table-resizer internal-resizer';
             th.appendChild(resizer);
 
             resizer.addEventListener('mousedown', (e) => {
                 e.preventDefault();
                 resizer.classList.add('active');
-                th.classList.add('resizing-th');
+
+                const startX = e.clientX;
+                const totalTableWidth = table.offsetWidth;
+                
+                // Физические ширины двух соседних колонок
+                const startWidthLeft = subHeaders[idx].getBoundingClientRect().width;
+                const startWidthRight = subHeaders[idx + 1].getBoundingClientRect().width;
+
+                const doDragInternal = (moveEvent) => {
+                    let delta = moveEvent.clientX - startX;
+
+                    // Ограничение минимальной ширины одиночной колонки — 30px
+                    if (startWidthLeft + delta < 30) delta = 30 - startWidthLeft;
+                    if (startWidthRight - delta < 30) delta = startWidthRight - 30;
+
+                    // Переводим новые пиксельные значения обратно в проценты colgroup
+                    const pctLeft = ((startWidthLeft + delta) / totalTableWidth) * 100;
+                    const pctRight = ((startWidthRight - delta) / totalTableWidth) * 100;
+
+                    cols[idx].style.width = `${pctLeft}%`;
+                    cols[idx + 1].style.width = `${pctRight}%`;
+                };
+
+                const stopDragInternal = () => {
+                    resizer.classList.remove('active');
+                    window.removeEventListener('mousemove', doDragInternal);
+                    window.removeEventListener('mouseup', stopDragInternal);
+                };
+
+                window.addEventListener('mousemove', doDragInternal);
+                window.addEventListener('mouseup', stopDragInternal);
+            });
+        });
+
+        // 4. ГРУППОВОЙ РЕСАЙЗ ДЛЯ ГЛАВНЫХ РАЗДЕЛИТЕЛЕЙ (Параметры ↔ База ↔ Контроллер)
+        mainHeaders.forEach((th, groupIndex) => {
+            if (groupIndex === mainHeaders.length - 1) return; // Для "КОНТРОЛЛЕР" правый край зафиксирован
+
+            const resizer = document.createElement('div');
+            resizer.className = 'table-resizer group-resizer';
+            th.appendChild(resizer);
+
+            resizer.addEventListener('mousedown', (e) => {
+                e.preventDefault();
+                resizer.classList.add('active');
                 
                 const startX = e.clientX;
-                const totalTableWidth = table.offsetWidth; // Текущая физическая ширина таблицы в px
+                const totalTableWidth = table.offsetWidth; 
                 
-                // Фиксируем стартовую ширину текущей и следующей колонки в пикселях
-                const startWidthCurrent = cols[index].getBoundingClientRect().width;
-                const startWidthNext = cols[index + 1].getBoundingClientRect().width;
+                let leftGroupCols = [];
+                let rightGroupCols = [];
 
-                const doDragColumn = (moveEvent) => {
-                    const delta = moveEvent.clientX - startX;
+                if (groupIndex === 0) {
+                    leftGroupCols = [0, 1, 2, 3]; // Все подколонки группы ПАРАМЕТРЫ
+                    rightGroupCols = [4, 5];       // Все подколонки группы БАЗА
+                } else if (groupIndex === 1) {
+                    leftGroupCols = [4, 5];       // Все подколонки группы БАЗА
+                    rightGroupCols = [6, 7];       // Все подколонки группы КОНТРОЛЛЕР
+                }
+
+                // Считываем физический размер каждой подколонки в группах
+                const startWidthsLeft = leftGroupCols.map(idx => subHeaders[idx].getBoundingClientRect().width);
+                const startWidthsRight = rightGroupCols.map(idx => subHeaders[idx].getBoundingClientRect().width);
+
+                const totalStartWidthLeft = startWidthsLeft.reduce((sum, w) => sum + w, 0);
+                const totalStartWidthRight = startWidthsRight.reduce((sum, w) => sum + w, 0);
+
+                if (totalStartWidthLeft === 0 || totalStartWidthRight === 0) return;
+
+                const doDragGroup = (moveEvent) => {
+                    let delta = moveEvent.clientX - startX;
                     
-                    let newWidthCurrent = startWidthCurrent + delta;
-                    let newWidthNext = startWidthNext - delta;
+                    // Лимит сжатия целой группы — минимум 80px
+                    if (totalStartWidthLeft + delta < 80) delta = 80 - totalStartWidthLeft;
+                    if (totalStartWidthRight - delta < 80) delta = totalStartWidthRight - 80;
                     
-                    // Защита от полного исчезновения колонки (микро-лимит 10px)
-                    if (newWidthCurrent < 10) {
-                        newWidthNext += (newWidthCurrent - 10);
-                        newWidthCurrent = 10;
-                    }
-                    if (newWidthNext < 10) {
-                        newWidthCurrent += (newWidthNext - 10);
-                        newWidthNext = 10;
-                    }
+                    const factorLeft = (totalStartWidthLeft + delta) / totalStartWidthLeft;
+                    const factorRight = (totalStartWidthRight - delta) / totalStartWidthRight;
                     
-                    // Переводим новые пиксельные значения обратно в % относительно живой ширины таблицы
-                    const pctCurrent = (newWidthCurrent / totalTableWidth) * 100;
-                    const pctNext = (newWidthNext / totalTableWidth) * 100;
+                    // Масштабируем левую группу пропорционально
+                    leftGroupCols.forEach((colIdx, i) => {
+                        const newWidthPx = startWidthsLeft[i] * factorLeft;
+                        const pct = (newWidthPx / totalTableWidth) * 100;
+                        cols[colIdx].style.width = `${pct}%`;
+                    });
                     
-                    // Одновременно обновляем две смежные колонки. Сумма процентов остается неизменной (100%)
-                    cols[index].style.width = `${pctCurrent}%`;
-                    cols[index + 1].style.width = `${pctNext}%`;
+                    // Масштабируем правую группу пропорционально
+                    rightGroupCols.forEach((colIdx, i) => {
+                        const newWidthPx = startWidthsRight[i] * factorRight;
+                        const pct = (newWidthPx / totalTableWidth) * 100;
+                        cols[colIdx].style.width = `${pct}%`;
+                    });
                 };
 
-                const stopDragColumn = () => {
+                const stopDragGroup = () => {
                     resizer.classList.remove('active');
-                    th.classList.remove('resizing-th');
-                    window.removeEventListener('mousemove', doDragColumn);
-                    window.removeEventListener('mouseup', stopDragColumn);
+                    window.removeEventListener('mousemove', doDragGroup);
+                    window.removeEventListener('mouseup', stopDragGroup);
                 };
 
-                window.addEventListener('mousemove', doDragColumn);
-                window.addEventListener('mouseup', stopDragColumn);
+                window.addEventListener('mousemove', doDragGroup);
+                window.addEventListener('mouseup', stopDragGroup);
             });
         });
     </script>
