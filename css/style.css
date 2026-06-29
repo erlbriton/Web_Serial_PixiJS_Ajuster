@@ -60,27 +60,48 @@ body.is-resizing {
     flex-shrink: 0;
 }
 
-.tool-btn {
-    background: #c6c6c6;
-    border: 1px solid #7b7b7b;
+/* ==========================================================================
+   УНИВЕРСАЛЬНЫЙ СТИЛЬ КНОПОК С ДВОЙНЫМ ОБРАМЛЕНИЕМ
+   ========================================================================== */
+.tool-btn, 
+.action-btn, 
+.inline-btn, 
+.refresh-btn {
+    background-color: #c6c6c6;
     color: #000000;
-    font-size: 14px;
-    padding: 3px 10px;
     cursor: pointer;
     font-weight: bold;
-}
-.tool-btn:hover { background: #e1e1e1; }
-
-.action-btn {
-    background: #bfbfbf;
-    border: 1px solid #707070;
-    color: #000000;
-    font-size: 12px;
     padding: 4px 12px;
-    cursor: pointer;
-    font-weight: bold;
+    font-size: 12px;
+    
+    /* Двойное обрамление */
+    border: 1px solid #ffffff;       /* Внешний светлый край */
+    outline: 1px solid #707070;      /* Внутренний темный контур */
+    
+    /* Эффект глубины */
+    box-shadow: inset 1px 1px 0px #ffffff, inset -1px -1px 0px #707070;
 }
-.action-btn:hover { background: #d8d8d8; }
+
+.tool-btn:hover, 
+.action-btn:hover, 
+.inline-btn:hover, 
+.refresh-btn:hover {
+    background-color: #e1e1e1;
+    outline: 1px solid #0055ff;      /* Синий акцент при наведении */
+}
+
+.tool-btn:active, 
+.action-btn:active, 
+.inline-btn:active, 
+.refresh-btn:active {
+    background-color: #a0a0a0;
+    box-shadow: inset 2px 2px 2px #555555;
+    outline: 1px solid #000000;
+}
+
+/* Специфические настройки для кнопок, если нужны отступы */
+.refresh-btn { margin-left: auto; }
+.tool-btn { font-size: 14px; padding: 3px 10px; }
 
 .panel-content-wrapper {
     display: flex; 
@@ -146,16 +167,13 @@ body.is-resizing {
     flex-shrink: 0; 
 }
 
-/* ТОНКАЯ РАЗДЕЛИТЕЛЬНАЯ ЛИНИЯ (Идентична нижней грани панели) */
 .settings-divider {
     border-top: 1px solid #7b7b7b;
     margin: 6px 0;
     flex-shrink: 0;
 }
 
-.label { 
-    white-space: nowrap; 
-}
+.label { white-space: nowrap; }
 
 .select-blue {
     background-color: #0055ff;
@@ -185,27 +203,6 @@ body.is-resizing {
 .mechanism-input { width: 130px; }
 .date-input { width: 90px; text-align: center; }
 .location-input { width: 120px; }
-
-.inline-btn {
-    background: #bfbfbf;
-    border: 1px solid #7b7b7b;
-    color: #000000;
-    padding: 3px 10px;
-    font-size: 12px;
-    cursor: pointer;
-}
-.inline-btn:hover { background: #dfdfdf; }
-
-.refresh-btn {
-    background: #bfbfbf;
-    border: 1px solid #0055ff;
-    color: #000000;
-    font-weight: bold;
-    padding: 3px 15px;
-    font-size: 12px;
-    cursor: pointer;
-    margin-left: auto; 
-}
 
 .id-banner {
     background-color: #7b7b7b;
@@ -237,7 +234,6 @@ body.is-resizing {
     color: #000000;
 }
 
-/* Шапка сохраняет свои границы */
 .modbus-grid th {
     background-color: #b8b8b8;
     position: relative; 
@@ -248,7 +244,6 @@ body.is-resizing {
     box-sizing: border-box;
 }
 
-/* Полностью чистая зона параметров без линий под шапкой */
 .modbus-grid td {
     border: none !important; 
     padding: 6px;
@@ -260,11 +255,8 @@ body.is-resizing {
     height: 24px;
 }
 
-.modbus-grid .main-group { 
-    background-color: #a6a6a6; 
-}
+.modbus-grid .main-group { background-color: #a6a6a6; }
 
-/* Стили зон захвата ресайзеров */
 .table-resizer {
     position: absolute;
     right: -3px; 
@@ -291,16 +283,11 @@ body.is-resizing {
     background-color: #0055ff !important;
 }
 
-/* ==========================================================================
-   Всплывающая подсказка (Tooltip)
-   ========================================================================== */
 .app-tooltip {
-    display: none;                /* Скрыто по умолчанию */
-    position: fixed !important;    /* Фиксация относительно окна браузера */
-    z-index: 99999999 !important; /* Выше любого другого элемента на странице */
-    pointer-events: none !important; /* Чтобы мышь проходила «сквозь» подсказку */
-    
-    /* Оформление (в стиле вашего интерфейса) */
+    display: none;
+    position: fixed !important;
+    z-index: 99999999 !important;
+    pointer-events: none !important;
     background-color: #1e1e1e;
     color: #f5f5f5;
     padding: 8px 12px;
@@ -308,6 +295,6 @@ body.is-resizing {
     border: 1px solid #ffffff;
     font-size: 13px;
     font-family: Arial, sans-serif;
-    white-space: nowrap;          /* Чтобы текст не переносился */
+    white-space: nowrap;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
