@@ -22,7 +22,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Переключатель осциллографа
+    // Переключатель осциллографа (UI часть: показать/скрыть панель)
     const toggleOscBtn = document.getElementById('toggleOscBtn');
     if (toggleOscBtn) {
         toggleOscBtn.addEventListener('click', () => {
@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
             window.dispatchEvent(new Event('resize'));
         });
     }
-
+  
     window.addEventListener('resize', enforceSidebarLimits);
 
     // РЕСАЙЗ САЙДБАРА
@@ -101,7 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     let delta = moveEvent.clientX - startX;
 
                     if (startWidthLeft + delta < 40) delta = 40 - startWidthLeft;
-                    if (startWidthRight - delta < 40) delta = 40 - startWidthRight;
+                    if (startWidthRight - delta < 40) delta = startWidthRight - 40;
 
                     const pctLeft = ((startWidthLeft + delta) / totalTableWidth) * 100;
                     const pctRight = ((startWidthRight - delta) / totalTableWidth) * 100;
