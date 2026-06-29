@@ -31,11 +31,19 @@ document.addEventListener('DOMContentLoaded', () => {
         // 1. Создаем элемент подсказки
         const tooltip = document.createElement('div');
         tooltip.className = 'app-tooltip';
-        tooltip.textContent = 'Открыть панель графиков и запустить опрос 70 регистров';
         document.body.appendChild(tooltip);
 
-        // 2. Логика позиционирования (привязка к курсору)
+        // 2. Функция обновления текста
+        const updateTooltipText = () => {
+            const isHidden = oscContainer.classList.contains('hidden');
+            tooltip.textContent = isHidden 
+                ? 'Открыть Осциллограф' 
+                : 'Закрыть Осциллограф';
+        };
+
+        // 3. Логика позиционирования и обновления
         const showTooltip = (e) => {
+            updateTooltipText(); // Обновляем текст перед показом
             tooltip.style.display = 'block';
             tooltip.style.left = (e.clientX + 15) + 'px';
             tooltip.style.top = (e.clientY + 15) + 'px';
