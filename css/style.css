@@ -355,3 +355,104 @@ body.is-resizing {
 .id-modal-btn:active {
     background-color: #004494;
 }
+
+/* ==========================================================================
+   КЛАССИЧЕСКАЯ СПЛИТ-КНОПКА (КНОПКА С ВЫПАДАЮЩИМ МЕНЮ)
+   ========================================================================== */
+.split-btn-group {
+    display: inline-flex;
+    align-items: stretch;
+    position: relative;
+    background-color: #c6c6c6;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    
+    /* Копируем оригинальное двойное обрамление ваших кнопок */
+    border: 1px solid #ffffff;       
+    outline: 1px solid #707070;      
+    box-shadow: inset 1px 1px 0px #ffffff, inset -1px -1px 0px #707070;
+}
+
+/* Сброс стилей для внутренних половинок */
+.split-btn-group button {
+    background: transparent;
+    border: none;
+    outline: none;
+    box-shadow: none;
+    color: #000000;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 3px 8px;
+}
+
+/* Левая главная кнопка (иконка папки) */
+.split-btn-main {
+    font-size: 14px; 
+}
+
+/* Правая кнопка (аккуратная маленькая стрелочка) */
+.split-btn-arrow {
+    font-size: 9px;  
+    padding: 3px 5px !important;
+}
+
+/* Подсветка при наведении и нажатии отдельно для каждой половинки */
+.split-btn-group button:hover {
+    background-color: #e1e1e1;
+}
+.split-btn-group button:active {
+    background-color: #a0a0a0;
+}
+
+/* Тонкий внутренний ретро-разделитель */
+.split-btn-divider {
+    width: 1px;
+    background-color: #707070;
+    border-right: 1px solid #ffffff;
+    margin: 3px 0;
+    flex-shrink: 0;
+}
+
+/* Контейнер выпадающего меню */
+.split-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: -1px; /* Выравнивание строго по контуру outline */
+    background-color: #c6c6c6;
+    min-width: 130px;
+    z-index: 9999;
+    margin-top: 3px;
+    box-sizing: border-box;
+    
+    /* Двойное обрамление для окошка меню */
+    border: 1px solid #ffffff;
+    outline: 1px solid #707070;
+    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Показываем меню при добавлении класса .show */
+.split-dropdown-menu.show {
+    display: block;
+}
+
+/* Пункты меню */
+.split-dropdown-item {
+    padding: 5px 12px;
+    font-size: 12px;
+    color: #000000;
+    cursor: pointer;
+    text-align: left;
+    user-select: none;
+}
+
+/* Эффект классического выделения строки синим цветом */
+.split-dropdown-item:hover {
+    background-color: #0055ff;
+    color: #ffffff;
+}

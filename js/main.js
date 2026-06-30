@@ -128,7 +128,6 @@ try {
 
             } catch (error) {
                 console.error("Ошибка внутри обработчика кнопки ID:", error.message);
-                // ИСПРАВЛЕНО: Гарантированное всплывающее окно при любой ошибке
                 showIdModal("Ошибка: " + error.message);
             } finally {
                 isIdentifying = false; // Снимаем защиту в любом случае
@@ -198,7 +197,6 @@ try {
                 console.warn("Порт не open!");
                 return;
             }
-            // ИСПРАВЛЕНО: Защита от дурака — не даем запустить осциллограф, пока читается ID
             if (isIdentifying) {
                 console.warn("Подождите, идет чтение ID устройства...");
                 return;
@@ -211,6 +209,61 @@ try {
             }
         });
     }
+
+    // ==========================================================================
+    // ЛОГИКА ДЛЯ СПЛИТ-КНОПКИ ВЫБОРА ФАЙЛА / ПАПКИ
+    // ==========================================================================
+    const folderActionBtn = document.getElementById('folderActionBtn');
+    const folderArrowBtn = document.getElementById('folderArrowBtn');
+    const folderDropdown = document.getElementById('folderDropdown');
+    const menuOpenFile = document.getElementById('menuOpenFile');
+    const menuOpenFolder = document.getElementById('menuOpenFolder');
+
+    function actionOpenFile() {
+        console.log("Вызвано действие: ОТКРЫТЬ ФАЙЛ");
+        // Логика загрузки файла
+    }
+
+    function actionOpenFolder() {
+        console.log("Вызвано действие: ОТКРЫТЬ ПАПКУ");
+        // Логика загрузки папки
+    }
+
+    if (folderActionBtn) {
+        folderActionBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (folderDropdown) folderDropdown.classList.remove('show');
+            actionOpenFile();
+        });
+    }
+
+    if (folderArrowBtn) {
+        folderArrowBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (folderDropdown) folderDropdown.classList.toggle('show');
+        });
+    }
+
+    if (menuOpenFile) {
+        menuOpenFile.addEventListener('click', () => {
+            actionOpenFile();
+            if (folderDropdown) folderDropdown.classList.remove('show');
+        });
+    }
+
+    if (menuOpenFolder) {
+        menuOpenFolder.addEventListener('click', () => {
+            actionOpenFolder();
+            if (folderDropdown) folderDropdown.classList.remove('show');
+        });
+    }
+
+    // Закрытие меню при клике снаружи
+    document.addEventListener('click', () => {
+        if (folderDropdown && folderDropdown.classList.contains('show')) {
+            folderDropdown.classList.remove('show');
+        }
+    });
 
 } catch (error) {
     console.error("Ошибка инициализации:", error.message);
