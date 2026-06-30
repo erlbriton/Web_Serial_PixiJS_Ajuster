@@ -298,3 +298,55 @@ body.is-resizing {
     white-space: nowrap;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
 }
+
+.id-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    background: rgba(0, 0, 0, 0.4);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+}
+
+.id-modal {
+    background: #fff;
+    padding: 12px 20px; /* Уменьшили отступы */
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+.id-modal-content {
+    display: flex;
+    align-items: center; /* Выравнивание по центру по вертикали */
+    gap: 15px; /* Расстояние между текстом и кнопкой */
+}
+
+.id-modal-text {
+    font-size: 14px;
+    white-space: nowrap; /* Чтобы текст не переносился */
+}
+
+.id-modal-btn {
+    padding: 6px 16px;
+    background-color: #007bff; /* Красивый голубой цвет */
+    color: white;              /* Белый текст на кнопке */
+    border: none;              /* Убираем стандартную рамку */
+    border-radius: 4px;        /* Слегка скругленные углы */
+    cursor: pointer;           /* Указатель мыши при наведении */
+    font-weight: 500;          /* Немного жирный текст */
+    transition: background-color 0.2s; /* Плавное изменение цвета при наведении */
+}
+
+/* Добавляем эффект при наведении мыши */
+.id-modal-btn:hover {
+    background-color: #0056b3; /* Чуть более темный голубой при наведении */
+}
+
+/* Эффект при нажатии */
+.id-modal-btn:active {
+    background-color: #004494;
+}
