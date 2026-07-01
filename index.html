@@ -21,7 +21,16 @@
                 <button id="toggleOscBtn" class="tool-btn">📈 ▾</button>
                 <button class="tool-btn">💾</button>
                 <button class="tool-btn">📦 ▾</button>
-                <button class="tool-btn">📁 ▾</button>
+                
+                <div class="split-btn-group">
+                    <button id="folderActionBtn" class="split-btn-main" title="Открыть файл">📁</button>
+                    <div class="split-btn-divider"></div>
+                    <button id="folderArrowBtn" class="split-btn-arrow">▼</button>
+                    <div id="folderDropdown" class="split-dropdown-menu">
+                        <div class="split-dropdown-item" id="menuOpenFile">Открыть файл</div>
+                        <div class="split-dropdown-item" id="menuOpenFolder">Открыть папку</div>
+                    </div>
+                </div>
                 
                 <button id="connectBtn" class="action-btn">подключиться</button>
                 <button id="idBtn" class="action-btn">ID</button>
@@ -124,7 +133,12 @@
                         </table>
                     </div>
 
-                </div> </div> </div> </div> <script src="js/oscilloscope/ringBuffer.js"></script>
+                </div> 
+            </div> 
+        </div> 
+    </div> 
+    
+    <script src="js/oscilloscope/ringBuffer.js"></script>
     <script src="js/oscilloscope/pixiOscilloscope.js"></script>
     <script src="js/serial/serial.js"></script>
     <script src="js/serial/modbus.js"></script>

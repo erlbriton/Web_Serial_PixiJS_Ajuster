@@ -54,7 +54,7 @@ body.is-resizing {
     padding: 5px 10px;
     border-bottom: 2px solid #7b7b7b;
     display: flex;
-    align-items: center;
+    align-items: stretch; /* ИЗМЕНЕНО: Растягивает все кнопки по максимальной высоте автоматически */
     gap: 5px;
     box-sizing: border-box;
     flex-shrink: 0;
@@ -67,6 +67,13 @@ body.is-resizing {
 .action-btn, 
 .inline-btn, 
 .refresh-btn {
+    display: inline-flex;            /* ИЗМЕНЕНО: Позволяет центрировать текст/эмодзи внутри */
+    align-items: center;             /* ИЗМЕНЕНО: Центрирование текста по вертикали */
+    justify-content: center;          /* ИЗМЕНЕНО: Центрирование по горизонтали */
+    box-sizing: border-box;          /* ИЗМЕНЕНО: Рамки входят в размер кнопки */
+    height: auto;                    /* ИЗМЕНЕНО: Высоту определяет Flexbox панели */
+    margin: 0;                       /* ИЗМЕНЕНО: Сброс лишних внешних отступов */
+
     background-color: #c6c6c6;
     color: #000000;
     cursor: pointer;
@@ -314,39 +321,138 @@ body.is-resizing {
 
 .id-modal {
     background: #fff;
-    padding: 12px 20px; /* Уменьшили отступы */
+    padding: 12px 20px; 
     border-radius: 6px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
 .id-modal-content {
     display: flex;
-    align-items: center; /* Выравнивание по центру по вертикали */
-    gap: 15px; /* Расстояние между текстом и кнопкой */
+    align-items: center; 
+    gap: 15px; 
 }
 
 .id-modal-text {
     font-size: 14px;
-    white-space: nowrap; /* Чтобы текст не переносился */
+    white-space: nowrap; 
 }
 
 .id-modal-btn {
     padding: 6px 16px;
-    background-color: #007bff; /* Красивый голубой цвет */
-    color: white;              /* Белый текст на кнопке */
-    border: none;              /* Убираем стандартную рамку */
-    border-radius: 4px;        /* Слегка скругленные углы */
-    cursor: pointer;           /* Указатель мыши при наведении */
-    font-weight: 500;          /* Немного жирный текст */
-    transition: background-color 0.2s; /* Плавное изменение цвета при наведении */
+    background-color: #007bff; 
+    color: white;              
+    border: none;              
+    border-radius: 4px;        
+    cursor: pointer;           
+    font-weight: 500;          
+    transition: background-color 0.2s; 
 }
 
-/* Добавляем эффект при наведении мыши */
 .id-modal-btn:hover {
-    background-color: #0056b3; /* Чуть более темный голубой при наведении */
+    background-color: #0056b3; 
 }
 
-/* Эффект при нажатии */
 .id-modal-btn:active {
     background-color: #004494;
+}
+
+/* ==========================================================================
+   КЛАССИЧЕСКАЯ СПЛИТ-КНОПКА (КНОПКА С ВЫПАДАЮЩИМ МЕНЮ)
+   ========================================================================== */
+.split-btn-group {
+    display: inline-flex;
+    align-items: stretch;
+    position: relative;
+    background-color: #c6c6c6;
+    box-sizing: border-box;
+    flex-shrink: 0;
+    
+    /* Копируем оригинальное двойное обрамление ваших кнопок */
+    border: 1px solid #ffffff;       
+    outline: 1px solid #707070;      
+    box-shadow: inset 1px 1px 0px #ffffff, inset -1px -1px 0px #707070;
+}
+
+/* Сброс стилей для внутренних половинок */
+.split-btn-group button {
+    background: transparent;
+    border: none;
+    outline: none;
+    box-shadow: none;
+    color: #000000;
+    font-weight: bold;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 3px 8px;
+}
+
+/* Левая главная кнопка (иконка папки) */
+.split-btn-main {
+    font-size: 14px; 
+}
+
+/* Правая кнопка (аккуратная маленькая стрелочка) */
+.split-btn-arrow {
+    font-size: 9px;  
+    padding: 3px 5px !important;
+}
+
+/* Подсветка при наведении и нажатии отдельно для каждой половинки */
+.split-btn-group button:hover {
+    background-color: #e1e1e1;
+}
+.split-btn-group button:active {
+    background-color: #a0a0a0;
+}
+
+/* Тонкий внутренний ретро-разделитель */
+.split-btn-divider {
+    width: 1px;
+    background-color: #707070;
+    border-right: 1px solid #ffffff;
+    margin: 3px 0;
+    flex-shrink: 0;
+}
+
+/* Контейнер выпадающего меню */
+.split-dropdown-menu {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: -1px; /* Выравнивание строго по контуру outline */
+    background-color: #c6c6c6;
+    min-width: 130px;
+    z-index: 9999;
+    margin-top: 3px;
+    box-sizing: border-box;
+    
+    /* Двойное обрамление для окошка меню */
+    border: 1px solid #ffffff;
+    outline: 1px solid #707070;
+    box-shadow: 2px 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+/* Показываем меню при добавлении класса .show */
+.split-dropdown-menu.show {
+    display: block;
+}
+
+/* Пункты меню */
+.split-dropdown-item {
+    padding: 5px 12px;
+    font-size: 12px;
+    color: #000000;
+    cursor: pointer;
+    text-align: left;
+    user-select: none;
+}
+
+/* Эффект классического выделения строки синим цветом */
+.split-dropdown-item:hover {
+    background-color: #0055ff;
+    color: #ffffff;
 }
