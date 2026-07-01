@@ -331,6 +331,7 @@ try {
     document.body.appendChild(fileInput);
 
     // 2. Обработчик, который срабатывает, когда пользователь выбрал файл
+    // 2. Обработчик, который срабатывает, когда пользователь выбрал файл
     fileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (!file) return; // Если пользователь нажал "Отмена"
@@ -350,12 +351,27 @@ try {
             
             console.log("Распарсенные данные:", config);
 
-            // Пример: вытаскиваем название устройства
-            if (config['DEVICE'] && config['DEVICE']['Description']) {
-                console.log(`Подключено устройство: ${config['DEVICE']['Description']}`);
+            // Находим элементы текстовых полей на странице
+            const mechanismInput = document.querySelector('.mechanism-input');
+            const locationInput = document.querySelector('.location-input');
+
+            // Проверяем, существует ли в распарсенных данных нужная секция [DEVICE]
+            if (config['DEVICE']) {
+                
+                // Если есть поле Description, записываем его в "Тип механизма"
+                if (config['DEVICE']['Description'] !== undefined && mechanismInput) {
+                    mechanismInput.value = config['DEVICE']['Description'];
+                    console.log(`В поле "Тип механизма" записано: ${config['DEVICE']['Description']}`);
+                }
+
+                // Если есть поле Location, записываем его в "Место установки"
+                if (config['DEVICE']['Location'] !== undefined && locationInput) {
+                    locationInput.value = config['DEVICE']['Location'];
+                    console.log(`В поле "Место установки" записано: ${config['DEVICE']['Location']}`);
+                }
             }
 
-            // Пример: Получаем удобный объект для конкретного параметра
+            // Наш старый отладочный пример для проверки конкретного параметра из ОЗУ
             const p00600 = iniParser.getParsedParameter('RAM', 'p00600');
             if (p00600) {
                 console.log(`Параметр p00600: ${p00600.name} (${p00600.description}) - Тип: ${p00600.dataType}`);
@@ -367,9 +383,10 @@ try {
             showIdModal("Ошибка чтения файла");
         };
 
-        reader.readAsText(file); // Читаем как обычный текст
+        // ВАЖНО: Явно указываем кодировку Windows-1251 вместо UTF-8
+        reader.readAsText(file, 'windows-1251'); 
 
-        // Очищаем input, чтобы пользователь мог открыть этот же файл повторно (если он его изменил)
+        // Очищаем input, чтобы пользователь мог открыть этот же файл повторно
         event.target.value = ''; 
     });
 
