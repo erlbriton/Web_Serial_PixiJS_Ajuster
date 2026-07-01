@@ -5,6 +5,61 @@ let lastPacketTime = 0;
 let lastLogTime = 0;
 let isIdentifying = false; // Блокировщик для защиты от одновременного чтения
 
+// База данных популярных USB-UART чипов (Vendor ID и Product ID)
+const USB_CHIPS_DATABASE = {
+    '10c4': {
+        name: 'Silicon Labs',
+        pids: {
+            'ea60': 'CP2102/CP2103',
+            'ea70': 'CP2105',
+            'ea71': 'CP2108'
+        }
+    },
+    '0403': {
+        name: 'FTDI',
+        pids: {
+            '6001': 'FT232R',
+            '6010': 'FT2232H',
+            '6015': 'FT231X'
+        }
+    },
+    '1a86': {
+        name: 'Qinheng',
+        pids: {
+            '7523': 'CH340/CH341',
+            '5523': 'CH341A'
+        }
+    },
+    '067b': {
+        name: 'Prolific',
+        pids: {
+            '2303': 'PL2303'
+        }
+    }
+};
+
+// Функция парсинга VID/PID и определения текстового названия чипа
+function identifyUsbChip(info) {
+    if (!info || !info.usbVendorId) {
+        return "Встроенный COM-порт";
+    }
+
+    // Переводим числа VID/PID в HEX-строки нижнего регистра (например, 4292 -> "10c4")
+    const vidStr = info.usbVendorId.toString(16).padStart(4, '0').toLowerCase();
+    const pidStr = info.usbProductId ? info.usbProductId.toString(16).padStart(4, '0').toLowerCase() : null;
+
+    const manufacturer = USB_CHIPS_DATABASE[vidStr];
+    
+    if (manufacturer) {
+        if (pidStr && manufacturer.pids[pidStr]) {
+            return manufacturer.pids[pidStr]; // Вернет например "CP2102/CP2103"
+        }
+        return `${manufacturer.name} USB`;
+    }
+
+    return `USB [${vidStr.toUpperCase()}:${pidStr ? pidStr.toUpperCase() : '????'}]`;
+}
+
 function showIdModal(text) {
     const existing = document.querySelector('.id-modal-overlay');
     if (existing) existing.remove();
@@ -37,6 +92,44 @@ try {
     const parser = new ModbusParser();
 
     const idBtn = document.getElementById("idBtn");
+    const connectBtn = document.getElementById("connectBtn");
+    const comSelect = document.getElementById("comSelect");
+
+    // Обработчик основной кнопки "подключиться"
+    if (connectBtn) {
+        connectBtn.addEventListener("click", async () => {
+            console.log("Клик по кнопке подключения");
+            
+            if (serial.isConnected) {
+                showIdModal("Порт уже открыт!");
+                return;
+            }
+
+            try {
+                // Вызываем встроенный метод твоего класса для открытия сессии связи
+                await serial.connect(115200);
+                
+                // Пытаемся безопасно прочитать getInfo() из нативного объекта порта внутри класса
+                const portInfo = (serial.port && typeof serial.port.getInfo === 'function') 
+                    ? serial.port.getInfo() 
+                    : (typeof serial.getInfo === 'function' ? serial.getInfo() : {});
+                
+                const chipName = identifyUsbChip(portInfo);
+                
+                // Выводим имя чипа транслятора в таблицу настроек интерфейса
+                if (comSelect) {
+                    comSelect.innerHTML = `<option value="active">${chipName}</option>`;
+                    comSelect.className = 'select-blue'; // Меняем цвет на активный синий
+                }
+                
+                console.log(`Успешно подключено к чипу: ${chipName}`);
+
+            } catch (error) {
+                console.error("Ошибка при ручном подключении:", error.message);
+                showIdModal("Ошибка подключения: " + error.message);
+            }
+        });
+    }
 
     // Изолированный обработчик кнопки ID
     if (idBtn) {
@@ -52,6 +145,17 @@ try {
             try {
                 isIdentifying = true; // Включаем защиту порта
                 await serial.connect(115200);
+                
+                // Дублируем определение чипа здесь, если пользователь решил сразу нажать ID вместо "подключиться"
+                const portInfo = (serial.port && typeof serial.port.getInfo === 'function') 
+                    ? serial.port.getInfo() 
+                    : (typeof serial.getInfo === 'function' ? serial.getInfo() : {});
+                
+                const chipName = identifyUsbChip(portInfo);
+                if (comSelect) {
+                    comSelect.innerHTML = `<option value="active">${chipName}</option>`;
+                    comSelect.className = 'select-blue';
+                }
                 
                 // Ждем 500мс, пока аджастер загрузится после открытия порта
                 console.log("[ЖЕЛЕЗО] Порт открыт. Ждем стабилизации UART (500мс)...");
