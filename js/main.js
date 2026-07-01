@@ -41,42 +41,43 @@ try {
             }
 
             try {
-                showIdModal("Запрос ID...");
+                showIdModal("Подключение...");
                 await serial.connect(115200);
                 
-                // 1. Отправляем команду
+                // 1. Команда ID
                 const packet = new Uint8Array([0x01, 0x11, 0xC0, 0x1C]);
                 await serial.write(packet);
-                console.log("Команда ID отправлена");
+                
+                // 2. Ждем, чтобы устройство гарантированно ответило (500мс)
+                await new Promise(r => setTimeout(r, 500));
 
-                // 2. ОДНОКРАТНОЕ ЧТЕНИЕ ОТВЕТА (прямо здесь, не дожидаясь Toggle)
-                const startTime = Date.now();
-                let found = false;
-                while (Date.now() - startTime < 1000) {
-                    const chunk = await serial.readChunk();
-                    if (chunk && chunk[0] === 0x01 && chunk[1] === 0x11) {
-                        const dataLength = chunk[2];
-                        let str = "";
-                        for (let i = 3; i < 3 + dataLength; i++) {
-                            if (chunk[i] > 0) str += String.fromCharCode(chunk[i]);
-                        }
-                        const idSpan = document.querySelector('.id-banner span');
-                        if (idSpan) idSpan.textContent = str.trim();
-                        
-                        const modal = document.querySelector('.id-modal-overlay');
-                        if (modal) modal.remove();
-                        
-                        console.log("ID получен:", str.trim());
-                        found = true;
-                        break;
+                // 3. Прямое чтение (в обход readChunk, если serial.port доступен)
+                // Если serial.port - это ваш объект Web Serial, делаем так:
+                const reader = serial.port.readable.getReader();
+                const { value } = await reader.read();
+                reader.releaseLock();
+
+                if (value) {
+                    console.log("Ответ от устройства:", value);
+                    // Парсинг
+                    let str = "";
+                    for (let i = 3; i < value.length; i++) {
+                        if (value[i] > 0) str += String.fromCharCode(value[i]);
                     }
-                    await new Promise(r => setTimeout(r, 50));
+                    
+                    const idSpan = document.querySelector('.id-banner span');
+                    if (idSpan) idSpan.textContent = str.trim();
+                    console.log("ID записан:", str.trim());
                 }
-                
-                if (!found) console.warn("Ответ на запрос ID не получен за 1 секунду");
-                
+
+                showIdModal("ID получен!");
+                setTimeout(() => {
+                    const modal = document.querySelector('.id-modal-overlay');
+                    if (modal) modal.remove();
+                }, 1000);
+
             } catch (error) {
-                console.error("Ошибка:", error.message);
+                console.error("Ошибка:", error);
                 showIdModal("Ошибка: " + error.message);
             }
         });
