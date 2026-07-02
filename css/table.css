@@ -92,3 +92,13 @@
     transition: background-color 0.1s;
     z-index: 10;
 }
+
+/* Класс для активной (выбранной) строки */
+.modbus-grid tbody tr.is-selected {
+    background-color: rgba(0, 255, 0, 0.2) !important;
+}
+
+/* Опционально: убедимся, что ячейки внутри строки не перекрывают этот фон */
+.modbus-grid tbody tr.is-selected td {
+    background-color: rgba(0, 255, 0, 0.2) !important;
+}

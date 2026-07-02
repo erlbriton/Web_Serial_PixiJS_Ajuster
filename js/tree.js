@@ -118,6 +118,17 @@ export function renderModbusTable(fullConfig) {
             <td class="hex-val">${controllerHex}</td>
             <td>${controllerPhysical}</td>
         `;
+
+        // Добавляем логику выделения строки
+        tr.addEventListener('click', () => {
+            // Убираем класс у всех остальных строк
+            document.querySelectorAll('#grid-data-rows tr').forEach(el => {
+                el.classList.remove('is-selected');
+            });
+            // Добавляем класс текущей
+            tr.classList.add('is-selected');
+        });
+
         tableBody.appendChild(tr);
     }
 }
