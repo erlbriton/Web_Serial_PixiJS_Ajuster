@@ -56,9 +56,11 @@ export function renderDeviceTree() {
         const ulElement = document.createElement('ul');
         ulElement.className = 'tree-id-list';
 
+        // Слой генерации конечных устройств (листьев)
         deviceRegistry[location].forEach(device => {
             const liElement = document.createElement('li');
-            liElement.className = 'tree-id-item'; 
+            // ИСПРАВЛЕНО: Добавили класс 'is-leaf', чтобы убрать маркеры и выровнять отступ
+            liElement.className = 'tree-id-item is-leaf'; 
             liElement.textContent = device.displayText;
             liElement.title = device.displayText; 
 
