@@ -4,8 +4,7 @@
 
 .table-wrapper {
     flex: 1;
-    overflow-y: auto;
-    overflow-x: hidden; 
+    overflow: auto; /* Включаем оба скролла сразу */
     background-color: #ffffff;
     border: 1px solid #7b7b7b;
     margin: 10px;
@@ -13,7 +12,7 @@
 }
 
 .modbus-grid {
-    table-layout: fixed; 
+    table-layout: fixed; /* ВЕРНУЛИ FIXED: это критично для работы JS-ресайзера */
     width: 100%;         
     border-collapse: separate; 
     border-spacing: 0;         
@@ -22,19 +21,19 @@
     color: #000000;
 }
 
-/* Общие стили для заголовка и ячеек: убираем лишние border */
 .modbus-grid th, 
 .modbus-grid td {
-    border-bottom: none; /* Убираем горизонтальные линии */
-    border-right: 1px solid #a0a0a0; /* Единая толщина для всех вертикальных линий */
+    border-bottom: none; 
+    border-right: 1px solid #1d1b1a; 
     border-left: none;
     padding: 6px;
     text-align: center;
     white-space: nowrap;
     box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
-/* Крайняя левая граница таблицы */
 .modbus-grid th:first-child,
 .modbus-grid td:first-child {
     border-left: 1px solid #a0a0a0;
@@ -42,8 +41,6 @@
 
 .modbus-grid td {
     height: 24px;
-    overflow: hidden; 
-    text-overflow: clip;
 }
 
 .modbus-grid .main-group { 
@@ -51,54 +48,50 @@
 }
 
 /* =================================================================
-   ФИКСАЦИЯ ШАПКИ (STICKY HEADER)
+   ФИКСАЦИЯ ШАПКИ
    ================================================================= */
 
 .modbus-grid thead th {
     position: sticky;
     background-color: #a8a7a7; 
-    z-index: 2;
+    z-index: 10; /* Увеличили Z-index */
 }
 
-/* Первый ярус ("ПАРАМЕТРЫ", "БАЗА", "КОНТРОЛЛЕР") */
 .modbus-grid thead tr:nth-child(1) th {
     top: 0;
-    z-index: 3;
+    z-index: 11;
     background-color: #dbdada;
 }
 
-/* Второй ярус */
 .modbus-grid thead tr:nth-child(2) th {
     top: 27px;
-    z-index: 2;
-}
-
-/* =================================================================
-   БЕЗОПАСНОСТЬ СЛОЁВ
-   ================================================================= */
-
-.modbus-grid tbody td {
-    background-color: #ffffff; 
-}
-
-/* Ресайзеры остаются на месте */
-.table-resizer {
-    position: absolute;
-    right: -3px; 
-    width: 6px; 
-    cursor: col-resize;
-    user-select: none;
-    background-color: transparent;
-    transition: background-color 0.1s;
     z-index: 10;
 }
 
-/* Класс для активной (выбранной) строки */
-.modbus-grid tbody tr.is-selected {
-    background-color: rgba(0, 255, 0, 0.2) !important;
+/* =================================================================
+   РЕСАЙЗЕРЫ (Сделали их активными поверх всего)
+   ================================================================= */
+
+.table-resizer {
+    position: absolute;
+    top: 0;
+    right: -4px; 
+    width: 8px; 
+    height: 100%; /* Ресайзер теперь на всю высоту шапки */
+    cursor: col-resize;
+    user-select: none;
+    background-color: transparent;
+    z-index: 100; /* Поверх sticky-шапки */
+    pointer-events: auto;
 }
 
-/* Опционально: убедимся, что ячейки внутри строки не перекрывают этот фон */
+.table-resizer:hover, 
+.table-resizer.active {
+    background-color: #0055ff !important;
+}
+
+/* Выделение строки */
+.modbus-grid tbody tr.is-selected,
 .modbus-grid tbody tr.is-selected td {
     background-color: rgba(0, 255, 0, 0.2) !important;
 }
