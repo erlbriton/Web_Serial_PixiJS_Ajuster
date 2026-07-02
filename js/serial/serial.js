@@ -49,6 +49,13 @@ class SerialConnection {
                 this.release();
                 return null;
             }
+            // =================================================================
+            // ТОЧКА ВРЕЗКИ: Выводим в консоль всё, что прилетело из COM-порта
+            // =================================================================
+               if (value) {
+                console.log(`[Serial RAW] Пришло байт: ${value.length} | Данные в десятичном виде:`, Array.from(value));
+            }
+
             return value; // Возвращаем Uint8Array со свежими байтами
         } catch (error) {
             console.error("[Serial] Ошибка критического чтения из порта:", error.message);

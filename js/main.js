@@ -187,8 +187,10 @@ try {
                             const dataLength = reply[2]; 
                             const expectedTotalLength = 3 + dataLength + 2; 
                             
-                            if (reply.length >= expectedTotalLength) {
-                                console.log("Пакет ID полностью собран!");
+                            // ЗАЩИТА ОТ ЗАВИСАНИЯ: Если набралось 52 байта для функции 0x11, 
+                            // выходим из цикла, иначе застрянем в readChunk() навсегда.
+                            if (reply.length >= expectedTotalLength || (reply[1] === 0x11 && reply.length >= 52)) {
+                                console.log("Пакет ID полностью собран (с учетом коррекции длины)!");
                                 break;
                             }
                         }
@@ -203,7 +205,10 @@ try {
                     const dataLength = reply[2];
                     let idText = "";
                     
-                    for (let i = 3; i < 3 + dataLength && i < reply.length; i++) {
+                    // ЗАЩИТА ОТ МУСОРА В СТРОКЕ: Текст гарантированно заканчивается перед 2 байтами CRC
+                    const endOfData = Math.min(3 + dataLength, reply.length - 2);
+                    
+                    for (let i = 3; i < endOfData; i++) {
                         // Фильтруем только печатные символы ASCII (от пробела и дальше)
                         if (reply[i] >= 32) {
                             idText += String.fromCharCode(reply[i]);
