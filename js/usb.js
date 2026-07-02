@@ -2,7 +2,7 @@ const USB_CHIPS_DATABASE = {
     '10c4': {
         name: 'Silicon Labs',
         pids: {
-            'ea60': 'CP2102/CP2103',
+            'ea60': 'CP2103',
             'ea70': 'CP2105',
             'ea71': 'CP2108'
         }

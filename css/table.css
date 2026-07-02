@@ -1,0 +1,74 @@
+/* ==========================================================================
+   КОМПОНЕНТ ИНТЕРАКТИВНОЙ ТАБЛИЦЫ РЕГИСТРОВ (table.css)
+   ========================================================================== */
+
+.table-wrapper {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden; 
+    background-color: #ffffff;
+    border: 1px solid #7b7b7b;
+    margin: 10px;
+}
+
+.modbus-grid {
+    table-layout: fixed; 
+    width: 100%;         
+    border-collapse: collapse;
+    font-size: 12px;
+    background-color: #ffffff;
+    color: #000000;
+}
+
+.modbus-grid th {
+    background-color: #b8b8b8;
+    position: relative; 
+    border: 1px solid #555555;
+    padding: 6px;
+    text-align: center;
+    white-space: nowrap;
+    box-sizing: border-box;
+}
+
+.modbus-grid td {
+    border: none !important; 
+    padding: 6px;
+    text-align: center;
+    white-space: nowrap; 
+    overflow: hidden; 
+    text-overflow: clip; 
+    box-sizing: border-box;
+    height: 24px;
+}
+
+.modbus-grid .main-group { 
+    background-color: #a6a6a6; 
+}
+
+/* Ползунки динамического изменения ширины колонок мыши */
+.table-resizer {
+    position: absolute;
+    right: -3px; 
+    width: 6px; 
+    cursor: col-resize;
+    user-select: none;
+    background-color: transparent;
+    transition: background-color 0.1s;
+}
+
+.table-resizer.group-resizer {
+    top: 0;
+    height: 52px; 
+    z-index: 10;
+}
+
+.table-resizer.internal-resizer {
+    top: 0;
+    bottom: 0;
+    z-index: 9;
+}
+
+.table-resizer:hover, 
+.table-resizer.active {
+    background-color: #0055ff !important;
+}
