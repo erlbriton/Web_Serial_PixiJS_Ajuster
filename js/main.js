@@ -1,5 +1,6 @@
 import { showIdModal, populateDeviceForm } from './ui.js';
-import { addDeviceToRegistry, renderDeviceTree } from './tree.js';
+// ШАГ 1: Добавляем импорт функции renderModbusTable из модуля дерева
+import { addDeviceToRegistry, renderDeviceTree, renderModbusTable } from './tree.js';
 import { 
     updateComInterfaceName, 
     executeDeviceIdentification, 
@@ -143,6 +144,9 @@ try {
                 const isAdded = addDeviceToRegistry(config);
                 if (isAdded) renderDeviceTree(); // Перерисовываем боковую панель при успехе
                 populateDeviceForm(config['DEVICE']); // Заполняем текстовые поля ввода
+                
+                // ШАГ 2: Передаем распарсенный конфиг напрямую в отрисовку таблицы параметров
+                renderModbusTable(config);
             }
 
             // Пример безопасного извлечения параметров для отладки
