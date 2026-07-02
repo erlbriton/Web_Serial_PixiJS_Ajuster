@@ -103,3 +103,8 @@
 .tree-id-item.is-leaf {
     padding-left: 15px;        
 }
+
+/* ДОБАВЛЕНО: Голубая прозрачная полоска-индикатор для активного ini-файла */
+.tree-id-item.is-selected {
+    background-color: rgba(0, 120, 215, 0.18); /* Прозрачный системный синий */
+}

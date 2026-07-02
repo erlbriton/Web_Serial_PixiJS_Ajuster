@@ -56,16 +56,21 @@ export function renderDeviceTree() {
         const ulElement = document.createElement('ul');
         ulElement.className = 'tree-id-list';
 
-        // Слой генерации конечных устройств (листьев)
         deviceRegistry[location].forEach(device => {
             const liElement = document.createElement('li');
-            // ИСПРАВЛЕНО: Добавили класс 'is-leaf', чтобы убрать маркеры и выровнять отступ
             liElement.className = 'tree-id-item is-leaf'; 
             liElement.textContent = device.displayText;
             liElement.title = device.displayText; 
 
             // Клик по устройству в дереве переносит данные в форму
             liElement.addEventListener('click', () => {
+                // ИСПРАВЛЕНО: Снимаем выделение с предыдущего выбранного ID
+                document.querySelectorAll('.tree-id-item.is-selected').forEach(el => {
+                    el.classList.remove('is-selected');
+                });
+                // ИСПРАВЛЕНО: Маркируем текущий элемент как активный
+                liElement.classList.add('is-selected');
+
                 populateDeviceForm(device.fullConfig['DEVICE']);
                 console.log(`Из дерева выбрано устройство ID: ${device.id}`);
             });
