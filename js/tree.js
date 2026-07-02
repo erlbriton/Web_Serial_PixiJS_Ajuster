@@ -36,8 +36,10 @@ export function renderModbusTable(fullConfig) {
     const sectionData = fullConfig[selectedMode];
     let rowNumber = 1;
 
+    // Обходим ключи параметров внутри выбранной секции
     for (const key in sectionData) {
         const parts = sectionData[key];
+        
         if (!Array.isArray(parts) || parts.length < 3) continue;
 
         const name = parts[0] || '';
@@ -72,8 +74,9 @@ export function renderModbusTable(fullConfig) {
         }
 
         const tr = document.createElement('tr');
+        // Заменили ${rowNumber++} на ${key} для вывода префикса 'p'
         tr.innerHTML = `
-            <td>${rowNumber++}</td>
+            <td>${key}</td>
             <td class="param-name" title="${name}">${name}</td>
             <td class="param-desc" title="${description}">${description}</td>
             <td>${units === '*' ? '—' : units}</td>
