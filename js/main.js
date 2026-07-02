@@ -315,7 +315,7 @@ try {
     }
 
     // ==========================================================================
-    // ЛОГИКА ДЛЯ СПЛИТ-КНОПКИ ВЫБОРА ФАЙЛА / ПАПКИ
+    // ЛОГИКА ДЛЯ СПЛИТ-КНОПКИ ВЫБОРА ФАЙЛА / ПАПКИ И ДЕРЕВА УСТРОЙСТВ
     // ==========================================================================
     const folderActionBtn = document.getElementById('folderActionBtn');
     const folderArrowBtn = document.getElementById('folderArrowBtn');
@@ -323,55 +323,85 @@ try {
     const menuOpenFile = document.getElementById('menuOpenFile');
     const menuOpenFolder = document.getElementById('menuOpenFolder');
 
+    // Глобальный реестр для хранения загруженных конфигураций файлов (группировка по Location)
+    const deviceRegistry = {};
+
     // 1. Создаем скрытый элемент для вызова системного окна
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
-    fileInput.accept = '.ini,.txt'; // Жесткое ограничение расширений
+    fileInput.accept = '.ini,.txt'; 
     fileInput.style.display = 'none';
     document.body.appendChild(fileInput);
 
     // 2. Обработчик, который срабатывает, когда пользователь выбрал файл
-    // 2. Обработчик, который срабатывает, когда пользователь выбрал файл
     fileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
-        if (!file) return; // Если пользователь нажал "Отмена"
+        if (!file) return; 
 
         console.log(`Выбран файл: ${file.name} (Размер: ${file.size} байт)`);
 
-        // Читаем содержимое выбранного файла
         const reader = new FileReader();
         reader.onload = (e) => {
             const fileContent = e.target.result;
             
             console.log("--- Чтение INI файла ---");
             
-            // Создаем экземпляр парсера и скармливаем ему текст
             const iniParser = new IniParser();
             const config = iniParser.parse(fileContent);
             
             console.log("Распарсенные данные:", config);
 
-            // Находим элементы текстовых полей на странице
             const mechanismInput = document.querySelector('.mechanism-input');
             const locationInput = document.querySelector('.location-input');
+            const dateInput = document.querySelector('.date-input');
 
             // Проверяем, существует ли в распарсенных данных нужная секция [DEVICE]
             if (config['DEVICE']) {
                 
-                // Если есть поле Description, записываем его в "Тип механизма"
-                if (config['DEVICE']['Description'] !== undefined && mechanismInput) {
-                    mechanismInput.value = config['DEVICE']['Description'];
-                    console.log(`В поле "Тип механизма" записано: ${config['DEVICE']['Description']}`);
+                // Вытаскиваем данные для дерева
+                const location = config['DEVICE']['Location'] || 'Неизвестное место';
+                const id = config['DEVICE']['ID'] || config['DEVICE']['Id'] || config['DEVICE']['id'] || 'Без ID';
+                const description = config['DEVICE']['Description'] || 'Без описания';
+                const version = config['DEVICE']['Version'] || ''; 
+                const date = config['DEVICE']['Date'] || '';
+
+                // КОРРЕКТИРОВКА №1: Убрали description (Тип устройства) из списка
+                const displayComponents = [id, version, date].filter(Boolean);
+                const deviceDisplayText = displayComponents.join(' ');
+
+                // Если такой локации еще нет в нашей базе — создаем пустой массив под неё
+                if (!deviceRegistry[location]) {
+                    deviceRegistry[location] = [];
                 }
 
-                // Если есть поле Location, записываем его в "Место установки"
+                // Защита от дубликатов: проверяем, нет ли уже устройства с таким ID в этой локации
+                const isDuplicate = deviceRegistry[location].some(dev => dev.id === id);
+                
+                if (!isDuplicate) {
+                    // Сохраняем устройство в реестр
+                    deviceRegistry[location].push({
+                        id: id,
+                        displayText: deviceDisplayText,
+                        fullConfig: config
+                    });
+                }
+
+                // Сразу же вызываем перерисовку дерева в левой панели
+                renderDeviceTree();
+
+                // По умолчанию заполняем текстовые поля формы текущим только что открытым файлом
+                if (config['DEVICE']['Description'] !== undefined && mechanismInput) {
+                    mechanismInput.value = config['DEVICE']['Description'];
+                }
                 if (config['DEVICE']['Location'] !== undefined && locationInput) {
                     locationInput.value = config['DEVICE']['Location'];
-                    console.log(`В поле "Место установки" записано: ${config['DEVICE']['Location']}`);
+                }
+                if (config['DEVICE']['Date'] !== undefined && dateInput) {
+                    dateInput.value = config['DEVICE']['Date'];
                 }
             }
 
-            // Наш старый отладочный пример для проверки конкретного параметра из ОЗУ
+            // Отладочный пример для проверки конкретного параметра из ОЗУ
             const p00600 = iniParser.getParsedParameter('RAM', 'p00600');
             if (p00600) {
                 console.log(`Параметр p00600: ${p00600.name} (${p00600.description}) - Тип: ${p00600.dataType}`);
@@ -383,22 +413,85 @@ try {
             showIdModal("Ошибка чтения файла");
         };
 
-        // ВАЖНО: Явно указываем кодировку Windows-1251 вместо UTF-8
         reader.readAsText(file, 'windows-1251'); 
-
-        // Очищаем input, чтобы пользователь мог открыть этот же файл повторно
         event.target.value = ''; 
     });
+
+    /**
+     * Функция генерации HTML-дерева на основе объекта deviceRegistry
+     */
+    function renderDeviceTree() {
+        const container = document.querySelector('.sidebar-tree-container');
+        if (!container) return;
+
+        container.innerHTML = ''; // Очищаем старое дерево
+
+        // Обходим все локации в базе данных
+        for (const location in deviceRegistry) {
+            
+            // Создаем тег <details> (раскрывающийся контейнер строки)
+            const detailsElement = document.createElement('details');
+            detailsElement.className = 'tree-location';
+            detailsElement.open = true; // Сделаем списки открытыми сразу при добавлении
+
+            // Создаем тег <summary> (заголовок с названием локации)
+            const summaryElement = document.createElement('summary');
+            summaryElement.className = 'tree-location-title';
+            summaryElement.textContent = location;
+            summaryElement.title = location; // Всплывающая подсказка браузера при наведении
+
+            // Создаем контейнер списка <ul> для дочерних ID устройств
+            const ulElement = document.createElement('ul');
+            ulElement.className = 'tree-id-list';
+
+            // Наполняем список устройствами, которые принадлежат этой локации
+            deviceRegistry[location].forEach(device => {
+                const liElement = document.createElement('li');
+                liElement.className = 'tree-id-item'; // Сюда теперь автоматически применяются стили из CSS
+                liElement.textContent = device.displayText;
+                liElement.title = device.displayText; // Всплывающая подсказка для длинной строки
+
+                // КЛИК ПО УСТРОЙСТВУ В ДЕРЕВЕ: подставляем все его данные в форму справа
+                liElement.addEventListener('click', () => {
+                    const mechanismInput = document.querySelector('.mechanism-input');
+                    const locationInput = document.querySelector('.location-input');
+                    const dateInput = document.querySelector('.date-input');
+                    
+                    const devConfig = device.fullConfig['DEVICE'];
+                    
+                    if (mechanismInput && devConfig['Description']) {
+                        mechanismInput.value = devConfig['Description'];
+                    }
+                    if (locationInput && devConfig['Location']) {
+                        locationInput.value = devConfig['Location'];
+                    }
+                    if (dateInput && devConfig['Date']) {
+                        dateInput.value = devConfig['Date'];
+                    }
+                    
+                    console.log(`Из дерева выбрано устройство ID: ${device.id}`);
+                });
+
+                ulElement.appendChild(liElement);
+            });
+
+            // Собираем ноду дерева воедино
+            detailsElement.appendChild(summaryElement);
+            detailsElement.appendChild(ulElement);
+            
+            // Выводим готовую группу в левую панель
+            container.appendChild(detailsElement);
+        }
+    }
 
     // 3. Привязываем клик по скрытому инпуту к нашей функции
     function actionOpenFile() {
         console.log("Вызвано действие: ОТКРЫТЬ ФАЙЛ");
-        fileInput.click(); // Имитируем клик, открывая системный диалог
+        fileInput.click(); 
     }
 
     function actionOpenFolder() {
         console.log("Вызвано действие: ОТКРЫТЬ ПАПКУ");
-        // Логика загрузки папки
     }
 
     if (folderActionBtn) {
