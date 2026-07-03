@@ -34,7 +34,6 @@ export function renderModbusTable(fullConfig) {
     if (!fullConfig || !fullConfig[selectedMode]) return;
 
     const sectionData = fullConfig[selectedMode];
-    let rowNumber = 1;
 
     // Обходим ключи параметров внутри выбранной секции
     for (const key in sectionData) {
@@ -52,7 +51,7 @@ export function renderModbusTable(fullConfig) {
         if (dataType === 'TBit') {
             const bitValue = parts[parts.length - 1] ? parts[parts.length - 1].trim() : '0';
             basePhysical = (bitValue === '1' || bitValue === '0') ? bitValue : '0';
-            baseHex = basePhysical === '1' ? '0x01' : '0x00';
+            baseHex = basePhysical === '1' ? '1' : '0';
         } else {
             let rawHex = '';
             for (let i = parts.length - 1; i >= 3; i--) {
@@ -73,13 +72,15 @@ export function renderModbusTable(fullConfig) {
             }
         }
 
+        // Логика отображения единиц измерения
+        const unitsDisplay = (dataType === 'TBit') ? '.' : (units === '*' ? '—' : units);
+
         const tr = document.createElement('tr');
-        // Заменили ${rowNumber++} на ${key} для вывода префикса 'p'
         tr.innerHTML = `
             <td>${key}</td>
             <td class="param-name" title="${name}">${name}</td>
             <td class="param-desc" title="${description}">${description}</td>
-            <td>${units === '*' ? '—' : units}</td>
+            <td>${unitsDisplay}</td>
             <td class="hex-val">${baseHex}</td>
             <td>${basePhysical}</td>
             <td class="hex-val">—</td>
@@ -94,7 +95,7 @@ export function renderModbusTable(fullConfig) {
         tableBody.appendChild(tr);
     }
 
-    // ВАЖНО: Вызываем функцию ресайза после того, как таблица отрисована
+    // Вызываем функцию ресайза после того, как таблица отрисована
     if (typeof window.initTableResizers === 'function') {
         window.initTableResizers();
     } else if (typeof initTableResizers === 'function') {
