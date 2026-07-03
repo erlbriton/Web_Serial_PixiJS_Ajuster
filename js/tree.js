@@ -1,39 +1,41 @@
 import { populateDeviceForm } from './ui.js';
 
-export const deviceRegistry = {};
+import { deviceRegistry, addDeviceToRegistry, parseRegisterAddress, hexToFloat32, float32ToHex } from './ini-manager/tree-core.js';
+
+//export const deviceRegistry = {};
 let currentDeviceConfig = null;
 
 // Вспомогательная функция для парсинга адресов с субадресами (.L, .H, .0-15)
-function parseRegisterAddress(addrString) {
-    if (!addrString || addrString === '*') return { reg: null, sub: null };
-    const cleanStr = addrString.toLowerCase().replace('r', '');
-    const parts = cleanStr.split('.');
-    return {
-        reg: parseInt(parts[0], 16),
-        sub: parts[1] ? parts[1].toUpperCase() : null
-    };
-}
+// function parseRegisterAddress(addrString) {
+//     if (!addrString || addrString === '*') return { reg: null, sub: null };
+//     const cleanStr = addrString.toLowerCase().replace('r', '');
+//     const parts = cleanStr.split('.');
+//     return {
+//         reg: parseInt(parts[0], 16),
+//         sub: parts[1] ? parts[1].toUpperCase() : null
+//     };
+// }
 
 // Вспомогательная функция для преобразования HEX-строки в 32-битный Float (IEEE 754)
-function hexToFloat32(hexStr) {
-    if (!hexStr) return NaN;
-    const intVal = parseInt(hexStr, 16);
-    if (isNaN(intVal)) return NaN;
+// function hexToFloat32(hexStr) {
+//     if (!hexStr) return NaN;
+//     const intVal = parseInt(hexStr, 16);
+//     if (isNaN(intVal)) return NaN;
     
-    const buffer = new ArrayBuffer(4);
-    const view = new DataView(buffer);
-    view.setUint32(0, intVal, false); // false указывает на Big-Endian
-    return view.getFloat32(0, false);
-}
+//     const buffer = new ArrayBuffer(4);
+//     const view = new DataView(buffer);
+//     view.setUint32(0, intVal, false); // false указывает на Big-Endian
+//     return view.getFloat32(0, false);
+// }
 
 // Вспомогательная функция для преобразования 32-битного Float обратно в HEX-строку (IEEE 754)
-function float32ToHex(floatVal, padLen = 8) {
-    const buffer = new ArrayBuffer(4);
-    const view = new DataView(buffer);
-    view.setFloat32(0, floatVal, false); // false указывает на Big-Endian
-    const intVal = view.getUint32(0, false);
-    return 'x' + intVal.toString(16).toUpperCase().padStart(padLen, '0');
-}
+// function float32ToHex(floatVal, padLen = 8) {
+//     const buffer = new ArrayBuffer(4);
+//     const view = new DataView(buffer);
+//     view.setFloat32(0, floatVal, false); // false указывает на Big-Endian
+//     const intVal = view.getUint32(0, false);
+//     return 'x' + intVal.toString(16).toUpperCase().padStart(padLen, '0');
+// }
 
 // Функция для закрытия всех открытых в данный момент инпутов редактирования
 function clearAnyActiveCellEditors() {
@@ -44,24 +46,24 @@ function clearAnyActiveCellEditors() {
     });
 }
 
-export function addDeviceToRegistry(config) {
-    if (!config || !config['DEVICE']) return false;
-    const dev = config['DEVICE'];
-    const location = dev['Location'] || 'Неизвестное место';
-    const id = dev['ID'] || dev['Id'] || dev['id'] || 'Без ID';
-    const version = dev['Version'] || ''; 
-    const date = dev['Date'] || '';
-    const displayComponents = [id, version, date].filter(Boolean);
-    const deviceDisplayText = displayComponents.join(' ');
+// export function addDeviceToRegistry(config) {
+//     if (!config || !config['DEVICE']) return false;
+//     const dev = config['DEVICE'];
+//     const location = dev['Location'] || 'Неизвестное место';
+//     const id = dev['ID'] || dev['Id'] || dev['id'] || 'Без ID';
+//     const version = dev['Version'] || ''; 
+//     const date = dev['Date'] || '';
+//     const displayComponents = [id, version, date].filter(Boolean);
+//     const deviceDisplayText = displayComponents.join(' ');
 
-    if (!deviceRegistry[location]) deviceRegistry[location] = [];
-    const isDuplicate = deviceRegistry[location].some(item => item.id === id);
-    if (!isDuplicate) {
-        deviceRegistry[location].push({ id: id, displayText: deviceDisplayText, fullConfig: config });
-        return true; 
-    }
-    return false; 
-}
+//     if (!deviceRegistry[location]) deviceRegistry[location] = [];
+//     const isDuplicate = deviceRegistry[location].some(item => item.id === id);
+//     if (!isDuplicate) {
+//         deviceRegistry[location].push({ id: id, displayText: deviceDisplayText, fullConfig: config });
+//         return true; 
+//     }
+//     return false; 
+// }
 
 export function renderModbusTable(fullConfig) {
     const tableBody = document.getElementById('grid-data-rows');

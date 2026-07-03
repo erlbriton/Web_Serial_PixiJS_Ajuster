@@ -1,6 +1,7 @@
 import { showIdModal, populateDeviceForm } from './ui.js';
 // ШАГ 1: Добавляем импорт функции renderModbusTable из модуля дерева
-import { addDeviceToRegistry, renderDeviceTree, renderModbusTable } from './tree.js';
+import { addDeviceToRegistry, parseRegisterAddress, hexToFloat32, float32ToHex } from './ini-manager/tree-core.js';
+import { renderDeviceTree, renderModbusTable } from './tree.js';
 import { 
     updateComInterfaceName, 
     executeDeviceIdentification, 
