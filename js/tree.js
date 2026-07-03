@@ -119,7 +119,7 @@ export function renderModbusTable(fullConfig) {
                     // Декодируем 32-битное число с плавающей точкой
                     const floatValue = hexToFloat32(rawHex.slice(1));
                     if (!isNaN(floatValue)) {
-                        const scale = parseFloat(parts[6]);
+                        const scale = parseFloat(parts[6] ? parts[6].replace(',', '.') : NaN);
                         const scaledValue = !isNaN(scale) ? floatValue * scale : floatValue;
                         basePhysical = `<div class="prm-val-display">${Number(scaledValue.toFixed(4)).toString()}</div>`;
                     } else {
@@ -128,7 +128,7 @@ export function renderModbusTable(fullConfig) {
                 } else {
                     // Стандартная логика для TInt, TWord, TByte и т.д.
                     const decValue = parseInt(rawHex.slice(1), 16);
-                    const scale = parseFloat(parts[6]);
+                    const scale = parseFloat(parts[6] ? parts[6].replace(',', '.') : NaN);
                     if (!isNaN(decValue) && !isNaN(scale)) {
                         basePhysical = `<div class="prm-val-display">${Number((decValue * scale).toFixed(4)).toString()}</div>`;
                     } else if (!isNaN(decValue)) {
@@ -210,8 +210,7 @@ export function renderModbusTable(fullConfig) {
     } else if (typeof initTableResizers === 'function') {
         initTableResizers();
     }
-}
-
+}     
 export function renderDeviceTree() {
     const container = document.querySelector('.sidebar-tree-container');
     if (!container) return;
