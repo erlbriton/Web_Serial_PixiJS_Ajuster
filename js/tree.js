@@ -1,9 +1,9 @@
 import { populateDeviceForm } from './ui.js';
 
-import { deviceRegistry, addDeviceToRegistry, parseRegisterAddress, hexToFloat32, float32ToHex } from './ini-manager/tree-core.js';
+import { currentDeviceConfig, deviceRegistry, addDeviceToRegistry, parseRegisterAddress, hexToFloat32, float32ToHex } from './ini-manager/tree-core.js';
 
 //export const deviceRegistry = {};
-let currentDeviceConfig = null;
+//let currentDeviceConfig = null;
 
 // Вспомогательная функция для парсинга адресов с субадресами (.L, .H, .0-15)
 // function parseRegisterAddress(addrString) {
@@ -518,38 +518,38 @@ export function renderModbusTable(fullConfig) {
     }
 }     
 
-export function renderDeviceTree() {
-    const container = document.querySelector('.sidebar-tree-container');
-    if (!container) return;
-    container.innerHTML = ''; 
-    for (const location in deviceRegistry) {
-        const detailsElement = document.createElement('details');
-        detailsElement.className = 'tree-location';
-        detailsElement.open = true; 
-        const summaryElement = document.createElement('summary');
-        summaryElement.className = 'tree-location-title';
-        summaryElement.textContent = location;
-        const ulElement = document.createElement('ul');
-        ulElement.className = 'tree-id-list';
-        deviceRegistry[location].forEach(device => {
-            const liElement = document.createElement('li');
-            liElement.className = 'tree-id-item is-leaf'; 
-            liElement.textContent = device.displayText;
-            liElement.addEventListener('click', () => {
-                clearAnyActiveCellEditors();
-                document.querySelectorAll('.tree-id-item.is-selected').forEach(el => el.classList.remove('is-selected'));
-                liElement.classList.add('is-selected');
-                currentDeviceConfig = device.fullConfig;
-                populateDeviceForm(device.fullConfig['DEVICE']);
-                renderModbusTable(currentDeviceConfig);
-            });
-            ulElement.appendChild(liElement);
-        });
-        detailsElement.appendChild(summaryElement);
-        detailsElement.appendChild(ulElement);
-        container.appendChild(detailsElement);
-    }
-}
+// export function renderDeviceTree() {
+//     const container = document.querySelector('.sidebar-tree-container');
+//     if (!container) return;
+//     container.innerHTML = ''; 
+//     for (const location in deviceRegistry) {
+//         const detailsElement = document.createElement('details');
+//         detailsElement.className = 'tree-location';
+//         detailsElement.open = true; 
+//         const summaryElement = document.createElement('summary');
+//         summaryElement.className = 'tree-location-title';
+//         summaryElement.textContent = location;
+//         const ulElement = document.createElement('ul');
+//         ulElement.className = 'tree-id-list';
+//         deviceRegistry[location].forEach(device => {
+//             const liElement = document.createElement('li');
+//             liElement.className = 'tree-id-item is-leaf'; 
+//             liElement.textContent = device.displayText;
+//             liElement.addEventListener('click', () => {
+//                 clearAnyActiveCellEditors();
+//                 document.querySelectorAll('.tree-id-item.is-selected').forEach(el => el.classList.remove('is-selected'));
+//                 liElement.classList.add('is-selected');
+//                 currentDeviceConfig = device.fullConfig;
+//                 populateDeviceForm(device.fullConfig['DEVICE']);
+//                 renderModbusTable(currentDeviceConfig);
+//             });
+//             ulElement.appendChild(liElement);
+//         });
+//         detailsElement.appendChild(summaryElement);
+//         detailsElement.appendChild(ulElement);
+//         container.appendChild(detailsElement);
+//     }
+// }
 
 document.addEventListener('DOMContentLoaded', () => {
     const modeSelect = document.querySelector('.toolbar-device-mode-select');
