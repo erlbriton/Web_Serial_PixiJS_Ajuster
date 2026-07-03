@@ -63,8 +63,9 @@
     background-color: #dbdada;
 }
 
+/* ИЗМЕНЕНО: top уменьшен до 26px, чтобы убрать зазор между рядами шапки */
 .modbus-grid thead tr:nth-child(2) th {
-    top: 27px;
+    top: 26px;
     z-index: 10;
 }
 
