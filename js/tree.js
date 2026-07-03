@@ -2,67 +2,17 @@ import { populateDeviceForm } from './ui.js';
 
 import { currentDeviceConfig, deviceRegistry, addDeviceToRegistry, parseRegisterAddress, hexToFloat32, float32ToHex } from './ini-manager/tree-core.js';
 
-//export const deviceRegistry = {};
-//let currentDeviceConfig = null;
+//import { clearAnyActiveCellEditors } from './ini-manager/table-editor.js';
 
-// Вспомогательная функция для парсинга адресов с субадресами (.L, .H, .0-15)
-// function parseRegisterAddress(addrString) {
-//     if (!addrString || addrString === '*') return { reg: null, sub: null };
-//     const cleanStr = addrString.toLowerCase().replace('r', '');
-//     const parts = cleanStr.split('.');
-//     return {
-//         reg: parseInt(parts[0], 16),
-//         sub: parts[1] ? parts[1].toUpperCase() : null
-//     };
-// }
-
-// Вспомогательная функция для преобразования HEX-строки в 32-битный Float (IEEE 754)
-// function hexToFloat32(hexStr) {
-//     if (!hexStr) return NaN;
-//     const intVal = parseInt(hexStr, 16);
-//     if (isNaN(intVal)) return NaN;
-    
-//     const buffer = new ArrayBuffer(4);
-//     const view = new DataView(buffer);
-//     view.setUint32(0, intVal, false); // false указывает на Big-Endian
-//     return view.getFloat32(0, false);
-// }
-
-// Вспомогательная функция для преобразования 32-битного Float обратно в HEX-строку (IEEE 754)
-// function float32ToHex(floatVal, padLen = 8) {
-//     const buffer = new ArrayBuffer(4);
-//     const view = new DataView(buffer);
-//     view.setFloat32(0, floatVal, false); // false указывает на Big-Endian
-//     const intVal = view.getUint32(0, false);
-//     return 'x' + intVal.toString(16).toUpperCase().padStart(padLen, '0');
-// }
+import { clearAnyActiveCellEditors, initHexCellEditor, initPhysicalCellEditor } from './ini-manager/table-editor.js';
 
 // Функция для закрытия всех открытых в данный момент инпутов редактирования
-function clearAnyActiveCellEditors() {
-    document.querySelectorAll('.is-editing-cell').forEach(el => {
-        if (typeof el.blurEditor === 'function') {
-            el.blurEditor();
-        }
-    });
-}
-
-// export function addDeviceToRegistry(config) {
-//     if (!config || !config['DEVICE']) return false;
-//     const dev = config['DEVICE'];
-//     const location = dev['Location'] || 'Неизвестное место';
-//     const id = dev['ID'] || dev['Id'] || dev['id'] || 'Без ID';
-//     const version = dev['Version'] || ''; 
-//     const date = dev['Date'] || '';
-//     const displayComponents = [id, version, date].filter(Boolean);
-//     const deviceDisplayText = displayComponents.join(' ');
-
-//     if (!deviceRegistry[location]) deviceRegistry[location] = [];
-//     const isDuplicate = deviceRegistry[location].some(item => item.id === id);
-//     if (!isDuplicate) {
-//         deviceRegistry[location].push({ id: id, displayText: deviceDisplayText, fullConfig: config });
-//         return true; 
-//     }
-//     return false; 
+// function clearAnyActiveCellEditors() {
+//     document.querySelectorAll('.is-editing-cell').forEach(el => {
+//         if (typeof el.blurEditor === 'function') {
+//             el.blurEditor();
+//         }
+//     });
 // }
 
 export function renderModbusTable(fullConfig) {
@@ -239,107 +189,7 @@ export function renderModbusTable(fullConfig) {
         const cellPhysical = tds[5];
 
         // --- Обработчик интерактивного редактирования ячейки HEX ---
-        cellHex.addEventListener('click', (e) => {
-            if (cellHex.classList.contains('is-editing-cell')) {
-                // ВТОРОЙ КЛИК: активируем поле для ввода и возвращаем курсор
-                const inputEl = cellHex.querySelector('input');
-                if (inputEl && inputEl.readOnly) {
-                    inputEl.readOnly = false;
-                    inputEl.style.caretColor = ''; // Восстанавливаем видимость курсора
-                    inputEl.focus();
-                }
-                e.stopPropagation();
-                return;
-            }
-
-            clearAnyActiveCellEditors();
-
-            // Подсвечиваем всю строку зеленым цветом
-            const prevSelected = document.querySelector('#grid-data-rows tr.is-selected');
-            if (prevSelected && prevSelected !== tr) {
-                prevSelected.classList.remove('is-selected');
-            }
-            tr.classList.add('is-selected');
-
-            // Подсвечиваем саму ячейку полностью желтым цветом
-            cellHex.style.backgroundColor = 'yellow';
-            
-            // Сохраняем исходный padding, чтобы вернуть его при закрытии
-            cellHex.dataset.oldPadding = cellHex.style.padding;
-            cellHex.style.padding = '0'; 
-            cellHex.classList.add('is-editing-cell');
-
-            let currentRawHex = parts[hexIndex] || (cellHex.textContent.startsWith('0x') ? 'x' + cellHex.textContent.slice(2) : 'x0000');
-            
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.value = currentRawHex;
-            
-            // ПЕРВЫЙ КЛИК: Только подготовка (инпут защищен от ввода, курсор скрыт)
-            input.readOnly = true; 
-            
-            input.style.width = '100%';
-            input.style.height = '100%';
-            input.style.boxSizing = 'border-box';
-            input.style.backgroundColor = 'yellow';
-            input.style.border = 'none';
-            input.style.outline = 'none';
-            input.style.font = 'inherit';
-            input.style.color = 'inherit';
-            input.style.padding = cellHex.dataset.oldPadding || '0px 4px';
-            input.style.margin = '0';
-            input.style.textAlign = 'center';      
-            input.style.caretColor = 'transparent'; 
-
-            cellHex.innerHTML = '';
-            cellHex.appendChild(input);
-
-            const saveHex = () => {
-                if (input.readOnly) {
-                    // Если пользователь так и не зашел в режим редактирования, просто убираем желтый фон
-                    cellHex.style.padding = cellHex.dataset.oldPadding || '';
-                    updateRowValues(tr, parts, dataType, scale, hexIndex, originalHexLen, prmListOptions);
-                    cellHex.style.backgroundColor = '';
-                    cellHex.classList.remove('is-editing-cell');
-                    delete cellHex.blurEditor;
-                    return;
-                }
-
-                let newVal = input.value.trim();
-                if (!newVal) newVal = currentRawHex;
-
-                if (newVal.toLowerCase().startsWith('0x')) {
-                    newVal = 'x' + newVal.slice(2);
-                } else if (!newVal.toLowerCase().startsWith('x')) {
-                    newVal = 'x' + newVal;
-                }
-
-                parts[hexIndex] = newVal;
-                
-                cellHex.style.padding = cellHex.dataset.oldPadding || '';
-                updateRowValues(tr, parts, dataType, scale, hexIndex, originalHexLen, prmListOptions);
-
-                cellHex.style.backgroundColor = '';
-                cellHex.classList.remove('is-editing-cell');
-                delete cellHex.blurEditor;
-            };
-
-            input.addEventListener('keydown', (evt) => {
-                if (evt.key === 'Enter') {
-                    saveHex();
-                } else if (evt.key === 'Escape') {
-                    cellHex.style.padding = cellHex.dataset.oldPadding || '';
-                    updateRowValues(tr, parts, dataType, scale, hexIndex, originalHexLen, prmListOptions);
-                    cellHex.style.backgroundColor = '';
-                    cellHex.classList.remove('is-editing-cell');
-                    delete cellHex.blurEditor;
-                }
-            });
-
-            input.addEventListener('blur', saveHex);
-            cellHex.blurEditor = saveHex;
-            e.stopPropagation();
-        });
+        initHexCellEditor(cellHex, tr, parts, hexIndex, updateRowValues, dataType, scale, originalHexLen, prmListOptions);
 
         // --- Обработчик интерактивного редактирования ячейки Physical ---
         cellPhysical.addEventListener('click', (e) => {
@@ -518,38 +368,6 @@ export function renderModbusTable(fullConfig) {
     }
 }     
 
-// export function renderDeviceTree() {
-//     const container = document.querySelector('.sidebar-tree-container');
-//     if (!container) return;
-//     container.innerHTML = ''; 
-//     for (const location in deviceRegistry) {
-//         const detailsElement = document.createElement('details');
-//         detailsElement.className = 'tree-location';
-//         detailsElement.open = true; 
-//         const summaryElement = document.createElement('summary');
-//         summaryElement.className = 'tree-location-title';
-//         summaryElement.textContent = location;
-//         const ulElement = document.createElement('ul');
-//         ulElement.className = 'tree-id-list';
-//         deviceRegistry[location].forEach(device => {
-//             const liElement = document.createElement('li');
-//             liElement.className = 'tree-id-item is-leaf'; 
-//             liElement.textContent = device.displayText;
-//             liElement.addEventListener('click', () => {
-//                 clearAnyActiveCellEditors();
-//                 document.querySelectorAll('.tree-id-item.is-selected').forEach(el => el.classList.remove('is-selected'));
-//                 liElement.classList.add('is-selected');
-//                 currentDeviceConfig = device.fullConfig;
-//                 populateDeviceForm(device.fullConfig['DEVICE']);
-//                 renderModbusTable(currentDeviceConfig);
-//             });
-//             ulElement.appendChild(liElement);
-//         });
-//         detailsElement.appendChild(summaryElement);
-//         detailsElement.appendChild(ulElement);
-//         container.appendChild(detailsElement);
-//     }
-// }
 
 document.addEventListener('DOMContentLoaded', () => {
     const modeSelect = document.querySelector('.toolbar-device-mode-select');
