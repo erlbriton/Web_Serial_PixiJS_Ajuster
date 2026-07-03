@@ -14,6 +14,18 @@ function parseRegisterAddress(addrString) {
     };
 }
 
+// Вспомогательная функция для преобразования HEX-строки в 32-битный Float (IEEE 754)
+function hexToFloat32(hexStr) {
+    if (!hexStr) return NaN;
+    const intVal = parseInt(hexStr, 16);
+    if (isNaN(intVal)) return NaN;
+    
+    const buffer = new ArrayBuffer(4);
+    const view = new DataView(buffer);
+    view.setUint32(0, intVal, false); // false указывает на Big-Endian
+    return view.getFloat32(0, false);
+}
+
 export function addDeviceToRegistry(config) {
     if (!config || !config['DEVICE']) return false;
     const dev = config['DEVICE'];
@@ -84,13 +96,12 @@ export function renderModbusTable(fullConfig) {
 
             if (rawHex && rawHex.startsWith('x')) {
                 baseHex = '0x' + rawHex.slice(1).toUpperCase();
-                const decValue = parseInt(rawHex.slice(1), 16);
                 
                 if (dataType === 'TPrmList') {
+                    const decValue = parseInt(rawHex.slice(1), 16);
                     if (Object.keys(prmListOptions).length > 0) {
                         const currentText = prmListOptions[rawHex.toLowerCase()] || decValue.toString();
                         
-                        // Создаем и текстовый блок, и скрытый выпадающий список
                         let selectHtml = `<div class="prm-val-display">${currentText}</div>`;
                         selectHtml += `<select class="table-prm-select" style="display: none; width: 100%; box-sizing: border-box;">`;
                         for (const hexKey in prmListOptions) {
@@ -104,7 +115,19 @@ export function renderModbusTable(fullConfig) {
                     } else {
                         basePhysical = `<div class="prm-val-display">${decValue.toString()}</div>`;
                     }
+                } else if (dataType === 'TFloat') {
+                    // Декодируем 32-битное число с плавающей точкой
+                    const floatValue = hexToFloat32(rawHex.slice(1));
+                    if (!isNaN(floatValue)) {
+                        const scale = parseFloat(parts[6]);
+                        const scaledValue = !isNaN(scale) ? floatValue * scale : floatValue;
+                        basePhysical = `<div class="prm-val-display">${Number(scaledValue.toFixed(4)).toString()}</div>`;
+                    } else {
+                        basePhysical = `<div class="prm-val-display">—</div>`;
+                    }
                 } else {
+                    // Стандартная логика для TInt, TWord, TByte и т.д.
+                    const decValue = parseInt(rawHex.slice(1), 16);
                     const scale = parseFloat(parts[6]);
                     if (!isNaN(decValue) && !isNaN(scale)) {
                         basePhysical = `<div class="prm-val-display">${Number((decValue * scale).toFixed(4)).toString()}</div>`;
@@ -145,13 +168,11 @@ export function renderModbusTable(fullConfig) {
                 const selectedHex = e.target.value; 
                 const selectedText = e.target.options[e.target.selectedIndex].text;
                 
-                // Обновляем текстовый блок новым значением
                 const displayEl = tr.querySelector('.prm-val-display');
                 if (displayEl) {
                     displayEl.textContent = selectedText;
                 }
                 
-                // Обновляем колонку HEX
                 const hexTd = tr.querySelectorAll('td')[4];
                 if (hexTd) {
                     hexTd.textContent = '0x' + selectedHex.slice(1).toUpperCase();
@@ -159,7 +180,7 @@ export function renderModbusTable(fullConfig) {
             });
         }
 
-        // Обработчик клика по строке: скрывает список в предыдущей строке и показывает в текущей
+        // Обработчик клика по строке
         tr.addEventListener('click', () => {
             const prevSelected = document.querySelector('#grid-data-rows tr.is-selected');
             if (prevSelected && prevSelected !== tr) {
