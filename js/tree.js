@@ -13,7 +13,6 @@ export function renderModbusTable(config) {
     tableBody.innerHTML = ''; 
 
     if (!config || !config[selectedMode]) {
-        console.warn("Данные для режима не найдены:", selectedMode);
         return;
     }
 
@@ -92,7 +91,6 @@ export function renderModbusTable(config) {
             tr.querySelectorAll('td')[3].textContent = unitsDisplay;
 
             if (isArray) {
-                // ПЕРЕДАЕМ ФУНКЦИИ КОНВЕРТАЦИИ В updateRowValues
                 updateRowValues(tr, parts, dataType, scale, hexIndex, originalHexLen, prmListOptions, hexToFloat32, float32ToHex);
 
                 const tds = tr.querySelectorAll('td');
