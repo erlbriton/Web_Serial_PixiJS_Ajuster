@@ -43,7 +43,7 @@ export function renderDeviceTree() {
     }
 }
 //Внутренняя функция для синхронного обновления текста и элементов внутри HTML-ячеек строки
-export function updateRowValues(rowElement, rowParts, rowDataType, rowScale, rowHexIndex, rowOriginalHexLen, rowPrmListOptions) {
+export function updateRowValues(rowElement, rowParts, rowDataType, rowScale, rowHexIndex, rowOriginalHexLen, rowPrmListOptions, hexToFloat32, float32ToHex) {
         const rowTds = rowElement.querySelectorAll('td');
         const rCellHex = rowTds[4];
         const rCellPhysical = rowTds[5];

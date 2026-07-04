@@ -3,6 +3,7 @@ import { showIdModal, populateDeviceForm } from './ui.js';
 import { renderModbusTable } from './tree.js';
 import { addDeviceToRegistry, parseRegisterAddress, hexToFloat32, float32ToHex } from './ini-manager/tree-core.js';
 import { renderDeviceTree } from './ini-manager/tree-ui.js';
+import { updateDeviceRegisters } from './serial/device_updater.js';
 
 // Импорт из того же уровня
 import { 
@@ -38,6 +39,7 @@ try {
     const connectBtn = document.getElementById("connectBtn");
     const comSelect = document.getElementById("comSelect");
     const toggleOscBtn = document.getElementById('toggleOscBtn');
+    const refreshBtn = document.getElementById("refresh-btn");
     
     // Элементы управления сплит-кнопкой выбора файлов/папок
     const folderActionBtn = document.getElementById('folderActionBtn');
@@ -81,6 +83,18 @@ try {
                 return;
             }
             await executeDeviceIdentification(serial, comSelect, appState);
+        });
+    }
+
+if (refreshBtn) {
+        refreshBtn.addEventListener("click", async () => {
+            if (serial && serial.isConnected) {
+                console.log("Запуск обновления таблицы...");
+                await updateDeviceRegisters(serial, appState.slaveAddress);
+                console.log("Обновление завершено.");
+            } else {
+                showIdModal("Устройство не подключено!");
+            }
         });
     }
 

@@ -76,6 +76,7 @@ export function renderModbusTable(config) {
                 }
             }
 
+            tr.setAttribute('data-hex-index', hexIndex);
             tr.innerHTML = `
                 <td>${key}</td>
                 <td class="param-name" title="${name}">${name}</td>
