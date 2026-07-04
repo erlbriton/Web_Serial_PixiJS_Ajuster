@@ -28,7 +28,6 @@ try {
     console.log("Приложение инициализировано. Запуск модульной структуры.");
     
     // Инициализация базовых классов для графики, буферов и связи
-    // (Предполагается, что эти классы объявлены глобально или подключены в index.html)
     const view = new PixiOscilloscope("osc-container");
     const buffers = Array.from({ length: 70 }, () => new RingBuffer(2500));
     const serial = new SerialConnection();
@@ -58,10 +57,6 @@ try {
     // ОБРАБОТЧИКИ СОБЫТИЙ ИНТЕРФЕЙСА
     // =================================================================
 
-    /**
-     * 1. Обработчик кнопки "Подключиться"
-     * Служит для ручного открытия выбранного COM-порта.
-     */
     if (connectBtn) {
         connectBtn.addEventListener("click", async () => {
             if (serial.isConnected) {
@@ -69,9 +64,7 @@ try {
                 return;
             }
             try {
-                // Подключаемся к порту на стандартной скорости 115200 бод
                 await serial.connect(115200);
-                // Запрашиваем информацию о железе (VID/PID) и выводим тип USB-чипа
                 const chipName = updateComInterfaceName(serial, comSelect);
                 console.log(`Успешно подключено к устройству: ${chipName}`);
             } catch (error) {
@@ -81,25 +74,16 @@ try {
         });
     }
 
-    /**
-     * 2. Обработчик кнопки "Опрос ID"
-     * Автоматически открывает порт и отправляет команду идентификации 0x11.
-     */
     if (idBtn) {
         idBtn.addEventListener("click", async () => {
             if (serial.isConnected) {
                 showIdModal("Порт уже открыт!");
                 return;
             }
-            // Вызов внешней бизнес-логики из модуля serial-actions.js
             await executeDeviceIdentification(serial, comSelect, appState);
         });
     }
 
-    /**
-     * 3. Обработчик кнопки запуска/остановки осциллографа
-     * Управляет флагом опроса и запускает параллельные асинхронные циклы.
-     */
     if (toggleOscBtn) {
         toggleOscBtn.addEventListener('click', () => {
             if (!serial.isConnected) {
@@ -110,15 +94,10 @@ try {
                 console.warn("Подождите, выполняется чтение ID устройства...");
                 return;
             }
-            
-            // Инвертируем текущее состояние опроса
             appState.isPolling = !appState.isPolling;
-            
             if (appState.isPolling) {
                 console.log("Запуск циклов опроса осциллографа...");
-                // Запуск асинхронного выгребания данных из UART
                 readLoop(serial, parser, view, buffers, appState); 
-                // Запуск асинхронной отправки запросов 0x03 в устройство
                 writeLoop(serial, appState);
             } else {
                 console.log("Опрос осциллографа остановлен пользователем.");
@@ -126,10 +105,6 @@ try {
         });
     }
 
-    /**
-     * 4. Логика обработки и парсинга выбранного INI файла
-     * Срабатывает сразу после того, как пользователь выбрал файл на диске.
-     */
     fileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (!file) return; 
@@ -137,23 +112,18 @@ try {
         console.log(`Выбран файл конфигурации: ${file.name}`);
         const reader = new FileReader();
         
-        // Событие успешного завершения чтения файла в память браузepа
         reader.onload = (e) => {
             const iniParser = new IniParser();
             const config = iniParser.parse(e.target.result);
             console.log("Результат парсинга структуры INI:", config);
 
-            // Если в файле есть валидная секция устройства, обновляем дерево и форму
             if (config['DEVICE']) {
                 const isAdded = addDeviceToRegistry(config);
-                if (isAdded) renderDeviceTree(); // Перерисовываем боковую панель при успехе
-                populateDeviceForm(config['DEVICE']); // Заполняем текстовые поля ввода
-                
-                // ШАГ 2: Передаем распарсенный конфиг напрямую в отрисовку таблицы параметров
+                if (isAdded) renderDeviceTree(); 
+                populateDeviceForm(config['DEVICE']); 
                 renderModbusTable(config);
             }
 
-            // Пример безопасного извлечения параметров для отладки
             const p00600 = iniParser.getParsedParameter('RAM', 'p00600');
             if (p00600) {
                 console.log(`Проверка параметра p00600: ${p00600.name} | Тип данных: ${p00600.dataType}`);
@@ -162,16 +132,11 @@ try {
         
         reader.onerror = () => showIdModal("Ошибка чтения текстового файла");
         
-        // Читаем строго в кодировке Windows-1251 для корректной поддержки кириллицы
         reader.readAsText(file, 'windows-1251'); 
         
-        // Сбрасываем значение, чтобы браузер позволял открывать один и тот же файл повторно
         event.target.value = ''; 
     });
 
-    /**
-     * 5. Управление поведением Сплит-Кнопки (Интерфейс выбора Файл / Папка)
-     */
     const actionOpenFile = () => fileInput.click();
     const actionOpenFolder = () => console.log("Вызвано действие: ОТКРЫТЬ ПАПКУ (в разработке)");
 
@@ -201,7 +166,6 @@ try {
         });
     }
     
-    // Закрываем выпадающий список папки, если пользователь кликнул мимо меню
     document.addEventListener('click', () => {
         if (folderDropdown) folderDropdown.classList.remove('show');
     });
