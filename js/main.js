@@ -1,11 +1,9 @@
-// Импорт из того же уровня (папки js)
 import { showIdModal, populateDeviceForm } from './ui.js';
 import { renderModbusTable } from './tree.js';
 import { addDeviceToRegistry, parseRegisterAddress, hexToFloat32, float32ToHex } from './ini-manager/tree-core.js';
 import { renderDeviceTree } from './ini-manager/tree-ui.js';
 import { updateDeviceRegisters } from './serial/device_updater.js';
 
-// Импорт из того же уровня
 import { 
     updateComInterfaceName, 
     executeDeviceIdentification, 
@@ -13,51 +11,38 @@ import {
     writeLoop 
 } from './serial-actions.js';
 
-/**
- * Единый объект разделяемого состояния приложения (Shared State).
- * Здесь хранятся флаги активности процессов и динамические параметры Modbus.
- * Любые изменения этих полей мгновенно учитываются в циклах опроса.
- */
 const appState = {
-    isIdentifying: false, // Флаг выполнения запроса ID устройства
-    isPolling: false,     // Флаг активной работы осциллографа (чтение/запись)
-    slaveAddress: 0x01,   // Динамический адрес устройства Modbus (изменяемый)
-    registerAddr: 0x0000  // Динамический начальный регистр для чтения (изменяемый)
+    isIdentifying: false,
+    isPolling: false,
+    slaveAddress: 0x01,
+    registerAddr: 0x0000 
 };
 
 try {
     console.log("Приложение инициализировано. Запуск модульной структуры.");
     
-    // Инициализация базовых классов для графики, буферов и связи
     const view = new PixiOscilloscope("osc-container");
     const buffers = Array.from({ length: 70 }, () => new RingBuffer(2500));
     const serial = new SerialConnection();
     const parser = new ModbusParser();
 
-    // Получение ссылок на элементы интерфейса страницы (DOM-элементы)
     const idBtn = document.getElementById("idBtn");
     const connectBtn = document.getElementById("connectBtn");
     const comSelect = document.getElementById("comSelect");
     const toggleOscBtn = document.getElementById('toggleOscBtn');
     const refreshBtn = document.getElementById("refresh-btn");
     
-    // Элементы управления сплит-кнопкой выбора файлов/папок
     const folderActionBtn = document.getElementById('folderActionBtn');
     const folderArrowBtn = document.getElementById('folderArrowBtn');
     const folderDropdown = document.getElementById('folderDropdown');
     const menuOpenFile = document.getElementById('menuOpenFile');
     const menuOpenFolder = document.getElementById('menuOpenFolder');
 
-    // Создание скрытого элемента ввода для удобного открытия INI-файлов через браузер
     const fileInput = document.createElement('input');
     fileInput.type = 'file';
     fileInput.accept = '.ini,.txt'; 
     fileInput.style.display = 'none';
     document.body.appendChild(fileInput);
-
-    // =================================================================
-    // ОБРАБОТЧИКИ СОБЫТИЙ ИНТЕРФЕЙСА
-    // =================================================================
 
     if (connectBtn) {
         connectBtn.addEventListener("click", async () => {
@@ -86,14 +71,32 @@ try {
         });
     }
 
-if (refreshBtn) {
+    if (refreshBtn) {
         refreshBtn.addEventListener("click", async () => {
-            if (serial && serial.isConnected) {
-                console.log("Запуск обновления таблицы...");
-                await updateDeviceRegisters(serial, appState.slaveAddress);
-                console.log("Обновление завершено.");
-            } else {
+            if (!serial || !serial.isConnected) {
                 showIdModal("Устройство не подключено!");
+                return;
+            }
+
+            // Блокируем кнопку, чтобы предотвратить повторные клики
+            refreshBtn.disabled = true;
+            console.log("Запуск обновления таблицы...");
+
+            try {
+                const wasPolling = await updateDeviceRegisters(serial, appState.slaveAddress, appState);
+                console.log("Обновление завершено.");
+                
+                if (wasPolling) {
+                    appState.isPolling = true;
+                    console.log("Возобновление циклов опроса...");
+                    readLoop(serial, parser, view, buffers, appState); 
+                    writeLoop(serial, appState);
+                }
+            } catch (err) {
+                console.error("Ошибка в процессе обновления:", err);
+            } finally {
+                // Всегда разблокируем кнопку
+                refreshBtn.disabled = false;
             }
         });
     }
@@ -129,25 +132,16 @@ if (refreshBtn) {
         reader.onload = (e) => {
             const iniParser = new IniParser();
             const config = iniParser.parse(e.target.result);
-            console.log("Результат парсинга структуры INI:", config);
-
             if (config['DEVICE']) {
                 const isAdded = addDeviceToRegistry(config);
                 if (isAdded) renderDeviceTree(); 
                 populateDeviceForm(config['DEVICE']); 
                 renderModbusTable(config);
             }
-
-            const p00600 = iniParser.getParsedParameter('RAM', 'p00600');
-            if (p00600) {
-                console.log(`Проверка параметра p00600: ${p00600.name} | Тип данных: ${p00600.dataType}`);
-            }
         };
         
         reader.onerror = () => showIdModal("Ошибка чтения текстового файла");
-        
         reader.readAsText(file, 'windows-1251'); 
-        
         event.target.value = ''; 
     });
 

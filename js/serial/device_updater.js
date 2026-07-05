@@ -1,14 +1,31 @@
 import { updateRowValues } from '../ini-manager/tree-ui.js';
 import { hexToFloat32, float32ToHex } from '../ini-manager/tree-core.js';
-import { calculateCRC } from '../serial-actions.js';
+import { calculateCRC, readWithTimeout } from '../serial-actions.js';
 
 let isUpdating = false;
 
-export async function updateDeviceRegisters(serial, slaveAddress = 0x01) {
-    if (isUpdating) return;
+// Очистка с надежным таймингом
+async function flushSerialBuffer(serial) {
+    let start = Date.now();
+    while (Date.now() - start < 100) { 
+        const chunk = await readWithTimeout(serial, 50); // Ждем данные до 50мс
+        if (!chunk) break; 
+    }
+}
+
+export async function updateDeviceRegisters(serial, slaveAddress = 0x01, appState = null) {
+    if (isUpdating) return false;
     
     isUpdating = true;
     document.body.classList.add('loading-state');
+    
+    const wasPolling = appState ? appState.isPolling : false;
+    
+    if (wasPolling) {
+        appState.isPolling = false; 
+        await new Promise(r => setTimeout(r, 100)); // Даем время на остановку цикла
+        await flushSerialBuffer(serial); 
+    }
 
     try {
         const rows = Array.from(document.querySelectorAll('#grid-data-rows tr'));
@@ -24,8 +41,6 @@ export async function updateDeviceRegisters(serial, slaveAddress = 0x01) {
         }
         addresses.sort((a, b) => a - b);
         
-        console.log(`[DEBUG] Карта регистров загружена: ${registerMap.size} записей.`);
-
         const batches = [];
         if (addresses.length > 0) {
             let currentBatch = { start: addresses[0], end: addresses[0], regs: [addresses[0]] };
@@ -45,8 +60,6 @@ export async function updateDeviceRegisters(serial, slaveAddress = 0x01) {
 
         for (const batch of batches) {
             const count = batch.end - batch.start + 1;
-            console.log(`[DEBUG] Запрос батча: старт 0x${batch.start.toString(16)}, кол-во: ${count}`);
-            
             const body = new Uint8Array([slaveAddress, 0x03, (batch.start >> 8) & 0xFF, batch.start & 0xFF, (count >> 8) & 0xFF, count & 0xFF]);
             const crc = calculateCRC(body);
             const finalPacket = new Uint8Array(8);
@@ -56,57 +69,33 @@ export async function updateDeviceRegisters(serial, slaveAddress = 0x01) {
 
             try {
                 await serial.write(finalPacket);
-                
                 let buffer = new Uint8Array(0);
                 const startTime = Date.now();
                 
-                // Ждем ответ (минимум 5 байт для ответа)
+                // Используем 50мс - это безопасный тайминг для Modbus
                 while (buffer.length < 5 && (Date.now() - startTime < 300)) {
-                    const chunk = await serial.readChunk();
+                    const chunk = await readWithTimeout(serial, 50); 
                     if (chunk && chunk.length > 0) {
                         let newBuffer = new Uint8Array(buffer.length + chunk.length);
                         newBuffer.set(buffer);
                         newBuffer.set(chunk, buffer.length);
                         buffer = newBuffer;
                     }
-                    await new Promise(r => setTimeout(r, 5));
                 }
 
-                if (buffer.length < 3) {
-                    console.warn(`[DEBUG] Батч 0x${batch.start.toString(16)}: ответ слишком короткий (${buffer.length} байт)`);
-                    continue;
-                }
-
-                // Проверка ответа: SlaveID + FuncCode
-                if (buffer[0] !== slaveAddress) {
-                    console.warn(`[DEBUG] Ошибка адреса: ожидалось 0x${slaveAddress.toString(16)}, получено 0x${buffer[0].toString(16)}`);
-                    continue;
-                }
-
-                if (buffer[1] === 0x83) {
-                    console.error(`[DEBUG] Modbus Error 0x${buffer[2].toString(16)} для батча 0x${batch.start.toString(16)}`);
-                    continue;
-                }
-
-                if (buffer[1] === 0x03) {
+                if (buffer.length >= 3 && buffer[1] === 0x03) {
                     const byteCount = buffer[2];
-                    const expectedTotal = 3 + byteCount + 2; // ID + Func + Len + Data + CRC
-                    
-                    // Дочитываем остаток, если пришло не всё
+                    const expectedTotal = 3 + byteCount + 2;
                     while (buffer.length < expectedTotal && (Date.now() - startTime < 300)) {
-                        const chunk = await serial.readChunk();
+                        const chunk = await readWithTimeout(serial, 50);
                         if (chunk && chunk.length > 0) {
                             let newBuffer = new Uint8Array(buffer.length + chunk.length);
                             newBuffer.set(buffer);
                             newBuffer.set(chunk, buffer.length);
                             buffer = newBuffer;
                         }
-                        await new Promise(r => setTimeout(r, 5));
                     }
-
                     if (buffer.length >= expectedTotal) {
-                        console.log(`[DEBUG] Получен полный пакет для 0x${batch.start.toString(16)}:`, Array.from(buffer));
-                        
                         for (let i = 0; i < count; i++) {
                             const regAddr = batch.start + i;
                             if (registerMap.has(regAddr)) {
@@ -114,32 +103,23 @@ export async function updateDeviceRegisters(serial, slaveAddress = 0x01) {
                                 const valH = buffer[3 + i * 2];
                                 const valL = buffer[4 + i * 2];
                                 const hexValue = 'x' + ((valH << 8) | valL).toString(16).padStart(4, '0');
-                                
-                                console.log(`[UI UPDATE] Записываем в 0x${regAddr.toString(16)} значение ${hexValue}`);
-                                
                                 try {
                                     let parts = JSON.parse(tr.dataset.parts || '[]');
                                     const hIdx = parseInt(tr.getAttribute('data-hex-index') || '0');
                                     parts[hIdx] = hexValue;
                                     tr.dataset.parts = JSON.stringify(parts);
-                                    
-                                    updateRowValues(tr, parts, tr.getAttribute('data-type'), parseFloat(tr.dataset.scale || 1), hIdx, 4, {}, hexToFloat32, float32ToHex, 6);
+                                    updateRowValues(tr, parts, tr.getAttribute('type'), parseFloat(tr.dataset.scale || 1), hIdx, 4, {}, hexToFloat32, float32ToHex, 6);
                                     tr.classList.add('updated');
-                                } catch (e) {
-                                    console.error(`[ERROR] Ошибка UI для 0x${regAddr.toString(16)}:`, e);
-                                }
+                                } catch (e) { console.error(`UI Error:`, e); }
                             }
                         }
-                    } else {
-                        console.warn(`[DEBUG] Пакет не полон: нужно ${expectedTotal}, есть ${buffer.length}`);
                     }
                 }
-            } catch (err) {
-                console.error(`[ERROR] Критическая ошибка батча 0x${batch.start.toString(16)}:`, err);
-            }
+            } catch (err) { console.error(`Batch error:`, err); }
         }
     } finally {
         isUpdating = false;
         document.body.classList.remove('loading-state');
     }
+    return wasPolling;
 }
