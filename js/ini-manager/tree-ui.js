@@ -42,11 +42,15 @@ export function renderDeviceTree() {
         container.appendChild(detailsElement);
     }
 }
-//Внутренняя функция для синхронного обновления текста и элементов внутри HTML-ячеек строки
-export function updateRowValues(rowElement, rowParts, rowDataType, rowScale, rowHexIndex, rowOriginalHexLen, rowPrmListOptions, hexToFloat32, float32ToHex) {
+
+// Внутренняя функция для синхронного обновления текста и элементов внутри HTML-ячеек строки
+// ДОБАВЛЕН ПАРАМЕТР colIndex = 4 В КОНЕЦ
+export function updateRowValues(rowElement, rowParts, rowDataType, rowScale, rowHexIndex, rowOriginalHexLen, rowPrmListOptions, hexToFloat32, float32ToHex, colIndex = 4) {
         const rowTds = rowElement.querySelectorAll('td');
-        const rCellHex = rowTds[4];
-        const rCellPhysical = rowTds[5];
+        
+        // ТЕПЕРЬ ИНДЕКСЫ ДИНАМИЧЕСКИЕ
+        const rCellHex = rowTds[colIndex];
+        const rCellPhysical = rowTds[colIndex + 1];
         
         let bHex = '—', bPhysical = '—';
         

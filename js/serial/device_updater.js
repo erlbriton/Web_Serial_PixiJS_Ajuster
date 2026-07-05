@@ -55,7 +55,10 @@ export async function updateDeviceRegisters(serial, slaveAddress = 0x01) {
                 
                 // 4. Обновляем массив и перерисовываем строку
                 parts[hIdx] = hexValue; 
-                updateRowValues(tr, parts, dataType, scale, hIdx, 4, {}, hexToFloat32, float32ToHex);
+
+                console.log("ВНИМАНИЕ! НОВЫЙ КОД РАБОТАЕТ И ПЫТАЕТСЯ ПИСАТЬ В КОЛОНКУ 6/7!");
+
+                updateRowValues(tr, parts, dataType, scale, hIdx, 4, {}, hexToFloat32, float32ToHex, 6);
                 
                 tr.classList.add('updated');
                 setTimeout(() => tr.classList.remove('updated'), 300);
