@@ -1,7 +1,7 @@
 console.log("Модуль tree-ui.js загружен!");
 import { populateDeviceForm } from '../ui.js';
 import { renderModbusTable } from '../tree.js';
-import { deviceRegistry, setCurrentDeviceConfig } from './tree-core.js';
+import { deviceRegistry, setCurrentDeviceConfig, hexToFloat32, float32ToHex } from './tree-core.js';
 
 export function renderDeviceTree() {
     const container = document.querySelector('.sidebar-tree-container');
@@ -45,7 +45,10 @@ export function renderDeviceTree() {
 
 // Внутренняя функция для синхронного обновления текста и элементов внутри HTML-ячеек строки
 // ДОБАВЛЕН ПАРАМЕТР colIndex = 4 В КОНЕЦ
-export function updateRowValues(rowElement, rowParts, rowDataType, rowScale, rowHexIndex, rowOriginalHexLen, rowPrmListOptions, hexToFloat32, float32ToHex, colIndex = 4) {
+export function updateRowValues(rowElement, rowParts, rowDataType, rowScale, rowHexIndex, rowOriginalHexLen, rowPrmListOptions, argHexToFloat32, argFloat32ToHex, colIndex = 4) {
+        // Безопасный фолбек на прямые импорты, если аргументы не были переданы из table-editor.js
+        const finalHexToFloat32 = typeof argHexToFloat32 === 'function' ? argHexToFloat32 : hexToFloat32;
+
         const rowTds = rowElement.querySelectorAll('td');
         
         // ТЕПЕРЬ ИНДЕКСЫ ДИНАМИЧЕСКИЕ
@@ -86,7 +89,7 @@ export function updateRowValues(rowElement, rowParts, rowDataType, rowScale, row
                         bPhysical = `<div class="prm-val-display">${decValue.toString()}</div>`;
                     }
                 } else if (rowDataType === 'TFloat') {
-                    const floatValue = hexToFloat32(rHex.slice(1));
+                    const floatValue = finalHexToFloat32(rHex.slice(1));
                     if (!isNaN(floatValue)) {
                         const scaledValue = !isNaN(rowScale) ? floatValue * rowScale : floatValue;
                         bPhysical = `<div class="prm-val-display">${Number(scaledValue.toFixed(4)).toString()}</div>`;

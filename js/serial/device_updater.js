@@ -1,13 +1,11 @@
 import { updateRowValues } from '../ini-manager/tree-ui.js';
 import { hexToFloat32, float32ToHex } from '../ini-manager/tree-core.js';
-import { calculateCRC, readWithTimeout } from '../serial-actions.js';
+import { calculateCRC, serialManager } from '../serial-actions.js';
 
 let isUpdating = false;
 
-// Очистка стала "агрессивной": ждем данные не дольше 20 мс
 async function flushSerialBuffer(serial) {
-    // Пытаемся прочитать один раз. Если буфер полон мусора — заберем его, если пуст — идем дальше сразу.
-    await readWithTimeout(serial, 20); 
+    // Больше не требуется, так как единый ридер сам контролирует поток данных
 }
 
 export async function updateDeviceRegisters(serial, slaveAddress = 0x01, appState = null) {
@@ -20,13 +18,11 @@ export async function updateDeviceRegisters(serial, slaveAddress = 0x01, appStat
     
     if (wasPolling) {
         appState.isPolling = false; 
-        // Минимальная пауза, чтобы цикл readLoop увидел флаг isPolling = false и завершился.
-        // 20 мс — этого достаточно для реакции JS Event Loop.
+        // Небольшая пауза для корректного переключения состояния UI
         await new Promise(r => setTimeout(r, 20)); 
-        await flushSerialBuffer(serial); 
     }
 
-    try {
+        try {
         const rows = Array.from(document.querySelectorAll('#grid-data-rows tr'));
         const registerMap = new Map();
         const addresses = [];
@@ -67,40 +63,32 @@ export async function updateDeviceRegisters(serial, slaveAddress = 0x01, appStat
             finalPacket[7] = (crc >> 8) & 0xFF;
 
             try {
-                await serial.write(finalPacket);
-                let buffer = new Uint8Array(0);
-                const startTime = Date.now();
-                
-                // Читаем ответ. Если данные приходят быстро, мы не ждем весь таймаут.
-                while (buffer.length < 5 && (Date.now() - startTime < 100)) {
-                    const chunk = await readWithTimeout(serial, 20); 
-                    if (chunk && chunk.length > 0) {
-                        let newBuffer = new Uint8Array(buffer.length + chunk.length);
-                        newBuffer.set(buffer);
-                        newBuffer.set(chunk, buffer.length);
-                        buffer = newBuffer;
+                // Динамический критерий полноты ответа для текущего батча
+                const checkComplete = (buf) => {
+                    if (buf.length >= 3 && buf[1] === 0x03) {
+                        const byteCount = buf[2];
+                        return buf.length >= (3 + byteCount + 2); // Адрес + Код + Длина + Данные + CRC
                     }
-                }
+                    if (buf.length >= 5 && (buf[1] & 0x80)) {
+                        return true; // Ответ со стандартной ошибкой Modbus RTU (5 байт)
+                    }
+                    return false;
+                };
 
-                if (buffer.length >= 3 && buffer[1] === 0x03) {
-                    const byteCount = buffer[2];
+                // Отправляем транзакцию в общую безопасную очередь портов
+                const reply = await serialManager.executeTransaction(finalPacket, checkComplete, 300);
+
+                if (reply && reply.length >= 3 && reply[1] === 0x03) {
+                    const byteCount = reply[2];
                     const expectedTotal = 3 + byteCount + 2;
-                    while (buffer.length < expectedTotal && (Date.now() - startTime < 100)) {
-                        const chunk = await readWithTimeout(serial, 20);
-                        if (chunk && chunk.length > 0) {
-                            let newBuffer = new Uint8Array(buffer.length + chunk.length);
-                            newBuffer.set(buffer);
-                            newBuffer.set(chunk, buffer.length);
-                            buffer = newBuffer;
-                        }
-                    }
-                    if (buffer.length >= expectedTotal) {
+                    
+                    if (reply.length >= expectedTotal) {
                         for (let i = 0; i < count; i++) {
                             const regAddr = batch.start + i;
                             if (registerMap.has(regAddr)) {
                                 const tr = registerMap.get(regAddr);
-                                const valH = buffer[3 + i * 2];
-                                const valL = buffer[4 + i * 2];
+                                const valH = reply[3 + i * 2];
+                                const valL = reply[4 + i * 2];
                                 const hexValue = 'x' + ((valH << 8) | valL).toString(16).padStart(4, '0');
                                 try {
                                     let parts = JSON.parse(tr.dataset.parts || '[]');
@@ -122,3 +110,17 @@ export async function updateDeviceRegisters(serial, slaveAddress = 0x01, appStat
     }
     return wasPolling;
 }
+
+export function resetUpdateState() {
+    isUpdating = false;
+    document.body.classList.remove('loading-state');
+    console.log("Состояние обновления принудительно сброшено.");
+}
+
+window.resetUpdateState = resetUpdateState;
+
+document.addEventListener('force-reset-updater', () => {
+    isUpdating = false;
+    document.body.classList.remove('loading-state');
+    console.log("Updater: Получен сигнал сброса, isUpdating = false");
+});

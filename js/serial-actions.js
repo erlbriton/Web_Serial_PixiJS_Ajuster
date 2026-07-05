@@ -2,15 +2,122 @@ import { identifyUsbChip } from './usb.js';
 import { showIdModal, updateIdBanner, closeIdModal } from './ui.js';
 
 let lastPacketTime = 0;
-let lastLogTime = 0;
 let currentLoopId = 0; 
 
-// Самый быстрый "readWithTimeout"
+// === ЦЕНТРАЛЬНЫЙ МЕНЕДЖЕР ПОРТА (АРХИТЕКТУРА «ЕДИНЫЙ ЧИТАТЕЛЬ») ===
+class SerialManager {
+    constructor() {
+        this.serial = null;
+        this.readerPromise = null;
+        this.currentHandler = null;
+        this.lock = Promise.resolve();
+    }
+
+    init(serial) {
+        this.serial = serial;
+        this.startReader();
+    }
+
+    startReader() {
+        if (this.readerPromise || !this.serial || !this.serial.isConnected) return;
+        
+        this.readerPromise = (async () => {
+            console.log("[SerialManager] Центральный единый ридер успешно запущен.");
+            while (this.serial && this.serial.isConnected) {
+                try {
+                    const chunk = await this.serial.readChunk();
+                    if (chunk && chunk.length > 0) {
+                        if (this.currentHandler) {
+                            this.currentHandler(chunk);
+                        }
+                    } else {
+                        // Кратковременная пауза при пустом чанке, чтобы не перегружать CPU
+                        await new Promise(r => setTimeout(r, 5));
+                    }
+                } catch (e) {
+                    console.error("[SerialManager] Критическая ошибка в едином ридере:", e);
+                    break;
+                }
+            }
+            this.readerPromise = null;
+            console.log("[SerialManager] Центральный единый ридер остановлен.");
+        })();
+    }
+
+    async executeTransaction(packet, checkCompleteFn, timeoutMs = 1000) {
+        // Строгая атомарная очередь запросов через Промис-Лок (Мьютекс)
+        const oldLock = this.lock;
+        let release;
+        this.lock = new Promise(r => release = r);
+        await oldLock;
+
+        try {
+            this.startReader(); // Гарантируем работу ридера перед отправкой
+
+            await this.serial.write(packet);
+
+            return await new Promise((resolve) => {
+                let buffer = new Uint8Array(0);
+                let timeoutId = null;
+
+                const cleanUp = () => {
+                    if (timeoutId) clearTimeout(timeoutId);
+                    if (this.currentHandler === handleChunk) {
+                        this.currentHandler = null;
+                    }
+                };
+
+                const handleChunk = (chunk) => {
+                    let newBuffer = new Uint8Array(buffer.length + chunk.length);
+                    newBuffer.set(buffer);
+                    newBuffer.set(chunk, buffer.length);
+                    buffer = newBuffer;
+
+                    if (checkCompleteFn(buffer)) {
+                        cleanUp();
+                        resolve(buffer);
+                    }
+                };
+
+                this.currentHandler = handleChunk;
+
+                timeoutId = setTimeout(() => {
+                    cleanUp();
+                    resolve(buffer); // Возвращаем накопленное по таймауту, если устройство не успело
+                }, timeoutMs);
+            });
+        } catch (err) {
+            console.error("[SerialManager] Ошибка транзакции:", err);
+            throw err;
+        } finally {
+            release();
+        }
+    }
+}
+
+export const serialManager = new SerialManager();
+
+// Временный мост для обратной совместимости с неотрефакторенным device_updater.js.
+// Перенаправляет старые одиночные вызовы чтения на центральный поток данных ридера, исключая "зомби-промисы".
 export const readWithTimeout = (serial, ms) => {
-    return Promise.race([
-        serial.readChunk(),
-        new Promise(resolve => setTimeout(() => resolve(null), ms))
-    ]);
+    return new Promise((resolve) => {
+        let timeoutId = setTimeout(() => {
+            if (serialManager.currentHandler === handleTemp) {
+                serialManager.currentHandler = null;
+            }
+            resolve(null);
+        }, ms);
+
+        const handleTemp = (chunk) => {
+            clearTimeout(timeoutId);
+            if (serialManager.currentHandler === handleTemp) {
+                serialManager.currentHandler = null;
+            }
+            resolve(chunk);
+        };
+
+        serialManager.currentHandler = handleTemp;
+    });
 };
 
 export function calculateCRC(buffer) {
@@ -44,25 +151,25 @@ export async function executeDeviceIdentification(serial, comSelect, stateObj) {
     try {
         stateObj.isIdentifying = true; 
         await serial.connect(115200);
+        serialManager.init(serial);
+        
         const chipName = updateComInterfaceName(serial, comSelect);
         await new Promise(r => setTimeout(r, 500));
         showIdModal("Запрос ID устройства...");
+        
         const packet = new Uint8Array([0x01, 0x11, 0xC0, 0x2C]);
-        await serial.write(packet);
-        let reply = [];
-        const startTime = Date.now();
-        while (Date.now() - startTime < 1500) {
-            const chunk = await serial.readChunk();
-            if (chunk && chunk.length > 0) {
-                for (let i = 0; i < chunk.length; i++) reply.push(chunk[i]);
-                if (reply.length >= 3) {
-                    const dataLength = reply[2]; 
-                    if (reply.length >= 3 + dataLength + 2 || (reply[1] === 0x11 && reply.length >= 52)) break;
-                }
+        
+        const checkComplete = (buf) => {
+            if (buf.length >= 3) {
+                const dataLength = buf[2]; 
+                return buf.length >= 3 + dataLength + 2 || buf.length >= 52;
             }
-            await new Promise(r => setTimeout(r, 20));
-        }
-        if (reply.length >= 3) {
+            return false;
+        };
+
+        const reply = await serialManager.executeTransaction(packet, checkComplete, 1500);
+
+        if (reply && reply.length >= 3) {
             const dataLength = reply[2];
             let idText = "";
             for (let i = 3; i < Math.min(3 + dataLength, reply.length - 2); i++) {
@@ -82,35 +189,14 @@ export async function executeDeviceIdentification(serial, comSelect, stateObj) {
 
 export async function readLoop(serial, parser, view, buffers, stateObj) {
     const loopId = ++currentLoopId; 
-    console.log(`[LOOP] Старт цикла #${loopId}`);
+    console.log(`[LOOP] Старт единого цикла опроса осциллографа #${loopId}`);
+    
+    serialManager.init(serial);
 
-    while (serial.isConnected && stateObj.isPolling) {
+    while (serial.isConnected && stateObj.isPolling && !stateObj.isRefreshing) {
         if (loopId !== currentLoopId) return; 
 
-        // 50мс таймаут для осциллографа - комфортно
-        const chunk = await readWithTimeout(serial, 50);
-        
-        if (loopId !== currentLoopId) return; 
-        if (!stateObj.isPolling) break; 
-        if (!chunk) continue;
-        
-        parser.appendData(chunk);
-        let packetData = parser.parsePacket();
-        while (packetData !== null) {
-            if (packetData.length >= 70) {
-                handleValidPacket(packetData, view, buffers);
-            }
-            packetData = parser.parsePacket();
-        }
-    }
-    console.log(`[LOOP] Цикл #${loopId} корректно остановлен.`);
-}
-
-export async function writeLoop(serial, stateObj) {
-    const loopId = currentLoopId;
-    while (serial.isConnected && stateObj.isPolling) {
-        if (loopId !== currentLoopId) return;
-
+        // Шаг 1.1: Автономно собираем пакет запроса осциллографа (70 регистров)
         const body = new Uint8Array([
             stateObj.slaveAddress, 0x03, 
             (stateObj.registerAddr >> 8) & 0xFF, stateObj.registerAddr & 0xFF, 
@@ -122,18 +208,43 @@ export async function writeLoop(serial, stateObj) {
         finalPacket[6] = crc & 0xFF;
         finalPacket[7] = (crc >> 8) & 0xFF;
 
-        await serial.write(finalPacket);
-        
-        if (loopId !== currentLoopId) return;
+        // Шаг 1.2: Задаем жесткий критерий полноты Modbus-ответа (3 байта заголовок + 140 байт данных + 2 байта CRC = 145 байт)
+        const checkComplete = (buf) => buf.length >= 145;
+
+        try {
+            // Шаг 1.3: Отправляем транзакцию в общую безопасную очередь портов
+            const reply = await serialManager.executeTransaction(finalPacket, checkComplete, 100);
+            
+            if (loopId !== currentLoopId) return; 
+            if (!stateObj.isPolling || stateObj.isRefreshing) break; 
+            
+            if (reply && reply.length > 0) {
+                parser.appendData(reply);
+                let packetData = parser.parsePacket();
+                while (packetData !== null) {
+                    if (packetData.length >= 70) {
+                        handleValidPacket(packetData, view, buffers);
+                    }
+                    packetData = parser.parsePacket();
+                }
+            }
+        } catch (err) {
+            console.error("[LOOP] Транзакция осциллографа прервана ошибкой:", err);
+        }
+
+        // Пауза между транзакциями опроса
         await new Promise(res => setTimeout(res, 20));
-        if (loopId !== currentLoopId) return;
     }
+    console.log(`[LOOP] Цикл #${loopId} опроса осциллографа корректно остановлен.`);
+}
+
+export async function writeLoop(serial, stateObj) {
+    // В новой архитектуре отправка запросов и чтение ответов объединены в атомарную транзакцию внутри readLoop.
+    // Этот метод сознательно оставлен пустым, чтобы не создавать параллельный спам в порт и не нарушать вызовы в main.js.
 }
 
 function handleValidPacket(packetData, view, buffers) {
     if (!Array.isArray(packetData)) return;
-    const now = performance.now();
-    lastPacketTime = now;
     for (let i = 0; i < 70; i++) {
         buffers[i].push(packetData[i] || 0);
     }

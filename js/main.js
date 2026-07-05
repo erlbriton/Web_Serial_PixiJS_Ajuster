@@ -7,13 +7,13 @@ import { updateDeviceRegisters } from './serial/device_updater.js';
 import { 
     updateComInterfaceName, 
     executeDeviceIdentification, 
-    readLoop, 
-    writeLoop 
+    readLoop 
 } from './serial-actions.js';
 
 const appState = {
     isIdentifying: false,
     isPolling: false,
+    isRefreshing: false, 
     slaveAddress: 0x01,
     registerAddr: 0x0000 
 };
@@ -78,24 +78,29 @@ try {
                 return;
             }
 
-            // Блокируем кнопку, чтобы предотвратить повторные клики
+            if (appState.isRefreshing) return; 
+            appState.isRefreshing = true;
             refreshBtn.disabled = true;
+            
             console.log("Запуск обновления таблицы...");
 
             try {
                 const wasPolling = await updateDeviceRegisters(serial, appState.slaveAddress, appState);
                 console.log("Обновление завершено.");
                 
+                // Сначала снимаем блокировку
+                appState.isRefreshing = false;
+                
+                // Только потом проверяем и запускаем цикл опроса осциллографа
                 if (wasPolling) {
                     appState.isPolling = true;
-                    console.log("Возобновление циклов опроса...");
+                    console.log("Возобновление цикла опроса...");
                     readLoop(serial, parser, view, buffers, appState); 
-                    writeLoop(serial, appState);
                 }
             } catch (err) {
+                appState.isRefreshing = false; // Обязательно снимаем флаг при ошибке
                 console.error("Ошибка в процессе обновления:", err);
             } finally {
-                // Всегда разблокируем кнопку
                 refreshBtn.disabled = false;
             }
         });
@@ -113,9 +118,8 @@ try {
             }
             appState.isPolling = !appState.isPolling;
             if (appState.isPolling) {
-                console.log("Запуск циклов опроса осциллографа...");
+                console.log("Запуск цикла опроса осциллографа...");
                 readLoop(serial, parser, view, buffers, appState); 
-                writeLoop(serial, appState);
             } else {
                 console.log("Опрос осциллографа остановлен пользователем.");
             }
