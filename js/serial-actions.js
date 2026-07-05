@@ -6,6 +6,25 @@ let lastPacketTime = 0;
 let lastLogTime = 0;
 
 /**
+ * Расчет контрольной суммы CRC-16 Modbus
+ */
+export function calculateCRC(buffer) {
+    let crc = 0xFFFF;
+    for (let pos = 0; pos < buffer.length; pos++) {
+        crc ^= buffer[pos];
+        for (let i = 8; i !== 0; i--) {
+            if ((crc & 0x0001) !== 0) {
+                crc >>= 1;
+                crc ^= 0xA001;
+            } else {
+                crc >>= 1;
+            }
+        }
+    }
+    return crc;
+}
+
+/**
  * Метод безопасного извлечения информации о COM-чипе
  */
 export function updateComInterfaceName(serial, comSelect) {
@@ -46,7 +65,7 @@ export async function executeDeviceIdentification(serial, comSelect, stateObj) {
         while (Date.now() - startTime < 1500) {
             const chunk = await serial.readChunk();
             if (chunk && chunk.length > 0) {
-                console.log("Получен чанк из端口:", Array.from(chunk));
+                console.log("Получен чанк из порта:", Array.from(chunk));
                 for (let i = 0; i < chunk.length; i++) {
                     reply.push(chunk[i]);
                 }
@@ -124,19 +143,8 @@ export async function writeLoop(serial, stateObj) {
             0x00, 0x46 
         ]);
         
-        // Расчет контрольной суммы CRC-16 Modbus
-        let crc = 0xFFFF;
-        for (let pos = 0; pos < body.length; pos++) {
-            crc ^= body[pos];
-            for (let i = 8; i !== 0; i--) {
-                if ((crc & 0x0001) !== 0) { 
-                    crc >>= 1; 
-                    crc ^= 0xA001; 
-                } else { 
-                    crc >>= 1; 
-                }
-            }
-        }
+        // Используем экспортированную функцию расчета CRC
+        const crc = calculateCRC(body);
         
         // Формирование финального 8-байтового пакета
         const finalPacket = new Uint8Array(8);
@@ -149,6 +157,7 @@ export async function writeLoop(serial, stateObj) {
         await new Promise(res => setTimeout(res, 20));
     }
 }
+
 
 /**
  * Обработка валидного пакета данных и перерисовка PIXI-осциллографа
