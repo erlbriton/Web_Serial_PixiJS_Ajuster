@@ -4,13 +4,10 @@ import { calculateCRC, readWithTimeout } from '../serial-actions.js';
 
 let isUpdating = false;
 
-// Очистка с надежным таймингом
+// Очистка стала "агрессивной": ждем данные не дольше 20 мс
 async function flushSerialBuffer(serial) {
-    let start = Date.now();
-    while (Date.now() - start < 100) { 
-        const chunk = await readWithTimeout(serial, 50); // Ждем данные до 50мс
-        if (!chunk) break; 
-    }
+    // Пытаемся прочитать один раз. Если буфер полон мусора — заберем его, если пуст — идем дальше сразу.
+    await readWithTimeout(serial, 20); 
 }
 
 export async function updateDeviceRegisters(serial, slaveAddress = 0x01, appState = null) {
@@ -23,7 +20,9 @@ export async function updateDeviceRegisters(serial, slaveAddress = 0x01, appStat
     
     if (wasPolling) {
         appState.isPolling = false; 
-        await new Promise(r => setTimeout(r, 100)); // Даем время на остановку цикла
+        // Минимальная пауза, чтобы цикл readLoop увидел флаг isPolling = false и завершился.
+        // 20 мс — этого достаточно для реакции JS Event Loop.
+        await new Promise(r => setTimeout(r, 20)); 
         await flushSerialBuffer(serial); 
     }
 
@@ -72,9 +71,9 @@ export async function updateDeviceRegisters(serial, slaveAddress = 0x01, appStat
                 let buffer = new Uint8Array(0);
                 const startTime = Date.now();
                 
-                // Используем 50мс - это безопасный тайминг для Modbus
-                while (buffer.length < 5 && (Date.now() - startTime < 300)) {
-                    const chunk = await readWithTimeout(serial, 50); 
+                // Читаем ответ. Если данные приходят быстро, мы не ждем весь таймаут.
+                while (buffer.length < 5 && (Date.now() - startTime < 100)) {
+                    const chunk = await readWithTimeout(serial, 20); 
                     if (chunk && chunk.length > 0) {
                         let newBuffer = new Uint8Array(buffer.length + chunk.length);
                         newBuffer.set(buffer);
@@ -86,8 +85,8 @@ export async function updateDeviceRegisters(serial, slaveAddress = 0x01, appStat
                 if (buffer.length >= 3 && buffer[1] === 0x03) {
                     const byteCount = buffer[2];
                     const expectedTotal = 3 + byteCount + 2;
-                    while (buffer.length < expectedTotal && (Date.now() - startTime < 300)) {
-                        const chunk = await readWithTimeout(serial, 50);
+                    while (buffer.length < expectedTotal && (Date.now() - startTime < 100)) {
+                        const chunk = await readWithTimeout(serial, 20);
                         if (chunk && chunk.length > 0) {
                             let newBuffer = new Uint8Array(buffer.length + chunk.length);
                             newBuffer.set(buffer);
