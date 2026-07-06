@@ -28,8 +28,10 @@ export function renderModbusTable(config) {
             const name = isArray ? (parts[0] || '') : '';
             const description = isArray ? (parts[1] || '') : '';
             const dataType = isArray ? (parts[2] || '') : '';
-            const regAddrString = isArray ? (parts[4] || '') : '';
-            const units = isArray ? (parts[5] || '—') : '—';
+            
+            // Учитываем смещение индексов в INI-файле для дискретных параметров TBit
+            const regAddrString = isArray ? (dataType === 'TBit' ? (parts[5] || '') : (parts[4] || '')) : '';
+            const units = isArray ? (dataType === 'TBit' ? '—' : (parts[5] || '—')) : '—';
 
             const parsedAddr = parseRegisterAddress(regAddrString);
             const scale = isArray ? parseFloat(parts[6] ? parts[6].replace(',', '.') : NaN) : NaN;
