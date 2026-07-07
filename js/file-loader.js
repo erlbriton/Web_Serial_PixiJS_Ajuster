@@ -13,17 +13,17 @@ export function setupFileHandling(fileInput) {
         if (!file) return;
 
         const reader = new FileReader();
-        reader.onload = (e) => {
-            const iniParser = new IniParser();
-            const config = iniParser.parse(e.target.result);
+        // reader.onload = (e) => {
+        //     const iniParser = new IniParser();
+        //     const config = iniParser.parse(e.target.result);
             
-            if (config['DEVICE']) {
-                const isAdded = addDeviceToRegistry(config);
-                if (isAdded) renderDeviceTree();
-                populateDeviceForm(config['DEVICE']);
-                renderModbusTable(config);
-            }
-        };
+        //     if (config['DEVICE']) {
+        //         const isAdded = addDeviceToRegistry(config);
+        //         if (isAdded) renderDeviceTree();
+        //         populateDeviceForm(config['DEVICE']);
+        //         renderModbusTable(config);
+        //     }
+        // };
         reader.onerror = () => showIdModal("Ошибка чтения текстового файла");
         reader.readAsText(file, 'windows-1251');
         event.target.value = '';

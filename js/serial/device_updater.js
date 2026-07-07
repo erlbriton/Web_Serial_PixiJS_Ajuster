@@ -2,6 +2,28 @@ import { updateRowValues } from '../ini-manager/tree-ui.js';
 import { hexToFloat32, float32ToHex } from '../ini-manager/tree-core.js';
 import { calculateCRC, serialManager } from '../serial-actions.js';
 
+/**
+ * Вспомогательная функция для получения множителя.
+ * Ищет значение в словаре переменных парсера, если не находит — возвращает число.
+ */
+function resolveScale(rawStr, appState) {
+    if (!rawStr) return 1.0;
+
+    // Пытаемся получить varsDictionary из вашего экземпляра парсера, который лежит в appState
+    // Если appState нет или он другой, fallback на старую логику или 1.0
+    const vars = appState?.parser?.varsDictionary || {};
+
+    const key = rawStr.trim().toLowerCase();
+
+    // Если ключ есть в нашем словаре переменных - берем его, иначе считаем, что это число
+    const val = vars.hasOwnProperty(key) ? vars[key] : rawStr;
+
+    // Преобразуем (заменяем запятую на точку для надежности)
+    const numericValue = parseFloat(val.toString().replace(',', '.'));
+
+    return isNaN(numericValue) ? 1.0 : numericValue;
+}
+
 let isUpdating = false;
 
 async function flushSerialBuffer(serial) {
@@ -10,15 +32,15 @@ async function flushSerialBuffer(serial) {
 
 export async function updateDeviceRegisters(serial, slaveAddress = 0x01, appState = null) {
     if (isUpdating) return false;
-    
+
     isUpdating = true;
     document.body.classList.add('loading-state');
-    
+
     const wasPolling = appState ? appState.isPolling : false;
-    
+
     if (wasPolling) {
-        appState.isPolling = false; 
-        await new Promise(r => setTimeout(r, 20)); 
+        appState.isPolling = false;
+        await new Promise(r => setTimeout(r, 20));
     }
 
     try {
@@ -30,12 +52,12 @@ export async function updateDeviceRegisters(serial, slaveAddress = 0x01, appStat
             const addrStr = tr.getAttribute('data-reg');
             if (!addrStr) continue;
             const addr = parseInt(addrStr, 16);
-            
+
             if (!registerMap.has(addr)) {
                 registerMap.set(addr, []);
             }
             registerMap.get(addr).push(tr);
-            
+
             const dataType = tr.getAttribute('data-type');
             if (dataType === 'TFloat' || dataType === 'TDWORD') {
                 addresses.push(addr);
@@ -44,9 +66,9 @@ export async function updateDeviceRegisters(serial, slaveAddress = 0x01, appStat
                 addresses.push(addr);
             }
         }
-        
+
         const uniqueAddresses = [...new Set(addresses)].sort((a, b) => a - b);
-        
+
         const batches = [];
         if (uniqueAddresses.length > 0) {
             let currentBatch = { start: uniqueAddresses[0], end: uniqueAddresses[0], regs: [uniqueAddresses[0]] };
@@ -90,59 +112,38 @@ export async function updateDeviceRegisters(serial, slaveAddress = 0x01, appStat
                 if (reply && reply.length >= 3 && reply[1] === 0x03) {
                     const byteCount = reply[2];
                     const expectedTotal = 3 + byteCount + 2;
-                    
+
                     if (reply.length >= expectedTotal) {
                         for (let i = 0; i < count; i++) {
                             const regAddr = batch.start + i;
-                            
+
                             if (registerMap.has(regAddr)) {
                                 const trList = registerMap.get(regAddr);
-                                
+
                                 for (const tr of trList) {
                                     try {
                                         let parts = JSON.parse(tr.dataset.parts || '[]');
                                         const dataType = tr.getAttribute('data-type') || '';
                                         const sub = tr.getAttribute('data-sub') || '';
                                         const hIdx = parseInt(tr.getAttribute('data-hex-index') || '0');
-                                        
+
                                         let originalHexLen = 4;
                                         if (parts[hIdx] && parts[hIdx].startsWith('x')) {
                                             originalHexLen = parts[hIdx].slice(1).length;
                                         }
 
                                         // Разрешение множителя
-                                        let scale = NaN;
+                                        let scale = 1.0;
                                         let scaleStr = '1.0';
+
                                         if (parts[6]) {
                                             scaleStr = parts[6].trim();
-                                            
-                                            if (isNaN(Number(scaleStr.replace(',', '.')))) {
-                                                const varName = scaleStr.toLowerCase();
-                                                let resolvedValue = null;
-                                                
-                                                if (appState) {
-                                                    const varsObj = appState.vars || appState.iniVars || appState.variables || (appState.iniData ? appState.iniData.vars : null);
-                                                    if (varsObj && typeof varsObj === 'object') {
-                                                        const targetKey = Object.keys(varsObj).find(k => k.toLowerCase() === varName);
-                                                        if (targetKey) {
-                                                            resolvedValue = varsObj[targetKey];
-                                                        }
-                                                    }
-                                                }
-                                                
-                                                if (resolvedValue === null && window.iniVars && typeof window.iniVars === 'object') {
-                                                    const targetKey = Object.keys(window.iniVars).find(k => k.toLowerCase() === varName);
-                                                    if (targetKey) {
-                                                        resolvedValue = window.iniVars[targetKey];
-                                                    }
-                                                }
 
-                                                if (resolvedValue !== null && resolvedValue !== undefined) {
-                                                    scaleStr = String(resolvedValue);
-                                                }
-                                            }
-                                            scaleStr = scaleStr.replace(',', '.');
-                                            scale = parseFloat(scaleStr);
+                                            // Вызываем наш новый метод
+                                            scale = resolveScale(scaleStr, appState);
+
+                                            // Сохраняем строку обратно в формате с запятой, если нужно
+                                            scaleStr = scale.toString().replace('.', ',');
                                         }
                                         if (isNaN(scale)) {
                                             scale = 1.0;
@@ -194,14 +195,14 @@ export async function updateDeviceRegisters(serial, slaveAddress = 0x01, appStat
                                         if (hexValue) {
                                             parts[hIdx] = hexValue;
                                             parts[6] = scaleStr;
-                                            
+
                                             tr.dataset.parts = JSON.stringify(parts);
-                                            
+
                                             updateRowValues(tr, parts, dataType, scale, hIdx, originalHexLen, prmListOptions, hexToFloat32, float32ToHex, 6);
                                             tr.classList.add('updated');
                                         }
-                                    } catch (e) { 
-                                        console.error(`Ошибка обработки строки для регистра 0x${regAddr.toString(16)}:`, e); 
+                                    } catch (e) {
+                                        console.error(`Ошибка обработки строки для регистра 0x${regAddr.toString(16)}:`, e);
                                     }
                                 }
                             }
