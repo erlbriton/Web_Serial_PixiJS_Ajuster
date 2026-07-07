@@ -132,6 +132,8 @@ try {
 
         console.log(`Выбран файл конфигурации: ${file.name}`);
         const reader = new FileReader();
+
+        //////////////////////////////////////////////////////////////////////////\
         
         reader.onload = (e) => {
             const iniParser = new IniParser();
@@ -143,7 +145,7 @@ try {
                 renderModbusTable(config);
             }
         };
-        
+        /////////////////////////////////////////////////////////////////////////////
         reader.onerror = () => showIdModal("Ошибка чтения текстового файла");
         reader.readAsText(file, 'windows-1251'); 
         event.target.value = ''; 
