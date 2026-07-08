@@ -3,6 +3,7 @@ import { renderModbusTable } from './tree.js';
 import { addDeviceToRegistry, parseRegisterAddress, hexToFloat32, float32ToHex } from './ini-manager/tree-core.js';
 import { renderDeviceTree } from './ini-manager/tree-ui.js';
 import { updateDeviceRegisters } from './serial/device_updater.js';
+import { setupFileHandling } from './file-loader.js';
 
 import { 
     updateComInterfaceName, 
@@ -126,41 +127,136 @@ try {
         });
     }
 
-    fileInput.addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        if (!file) return; 
+    // 1. Инициализируем глобальное состояние
+window.appState = {
+    parser: null,
+    config: null,
+    isPolling: false
+};
 
-        console.log(`Выбран файл конфигурации: ${file.name}`);
-        const reader = new FileReader();
+// 1. Инициализируем глобальное состояние
+window.appState = {
+    parser: null,
+    config: null,
+    isPolling: false
+};
 
-        //////////////////////////////////////////////////////////////////////////\
+// 2. Ждем готовности DOM
+document.addEventListener('DOMContentLoaded', () => {
+    // Находим наши скрытые инпуты
+    const filePicker = document.getElementById('filePicker');
+    const folderPicker = document.getElementById('folderPicker');
+
+    // Инициализируем обработчики (убедитесь, что функции импортированы в начале файла)
+    if (filePicker) setupFileHandling(filePicker);
+    
+    // Если setupFolderHandling еще не написана, создайте ее или оставьте эту проверку
+    if (folderPicker && typeof setupFolderHandling === 'function') {
+        setupFolderHandling(folderPicker);
+    }
+
+    // --- ПРИВЯЗКА КНОПОК ---
+
+    // 1. Основная кнопка (📁) -> Открывает файл
+   // const folderActionBtn = document.getElementById('folderActionBtn');
+    if (folderActionBtn) {
+        folderActionBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Важно: останавливает всплытие события
+            filePicker.click();
+        });
+    }
+
+    // 2. Пункт меню "Открыть файл" -> Открывает файл
+    const menuOpenFile = document.getElementById('menuOpenFile');
+    if (menuOpenFile) {
+        menuOpenFile.addEventListener('click', (e) => {
+            e.stopPropagation();
+            filePicker.click();
+        });
+    }
+
+    // 3. Пункт меню "Открыть папку" -> Открывает папку
+    const menuOpenFolder = document.getElementById('menuOpenFolder');
+    if (menuOpenFolder) {
+        menuOpenFolder.addEventListener('click', (e) => {
+            e.stopPropagation();
+            folderPicker.click();
+        });
+    }
+
+    console.log("Updater: Файловые обработчики и кнопки инициализированы.");
+});
+
+// 2. Ждем готовности DOM
+// document.addEventListener('DOMContentLoaded', () => {
+//     // Получаем ссылки на скрытые инпуты
+//     const filePicker = document.getElementById('filePicker');
+//     const folderPicker = document.getElementById('folderPicker');
+
+//     // Инициализируем обработчики (убедитесь, что функции импортированы)
+//     if (filePicker) setupFileHandling(filePicker);
+    
+//     // Если у вас еще нет setupFolderHandling, создайте функцию-заглушку в file-utils.js
+//     // export function setupFolderHandling(input) { ... }
+//     if (folderPicker && typeof setupFolderHandling !== 'undefined') {
+//         setupFolderHandling(folderPicker);
+//     }
+
+//     // Привязываем кнопки интерфейса к скрытым инпутам
+    
+//     // 1. Основная кнопка (📁) -> Открывает файл
+//     document.getElementById('folderActionBtn').addEventListener('click', () => {
+//         filePicker.click();
+//     });
+
+//     // 2. Пункт меню "Открыть файл" -> Открывает файл
+//     document.getElementById('menuOpenFile').addEventListener('click', () => {
+//         filePicker.click();
+//     });
+
+//     // 3. Пункт меню "Открыть папку" -> Открывает папку
+//     document.getElementById('menuOpenFolder').addEventListener('click', () => {
+//         folderPicker.click();
+//     });
+
+//     console.log("Updater: Файловые обработчики и кнопки инициализированы.");
+// });
+
+    // fileInput.addEventListener('change', (event) => {
+    //     const file = event.target.files[0];
+    //     if (!file) return; 
+
+    //     console.log(`Выбран файл конфигурации: ${file.name}`);
+    //     const reader = new FileReader();
+
+    //     //////////////////////////////////////////////////////////////////////////\
         
-        reader.onload = (e) => {
-            const iniParser = new IniParser();
-            const config = iniParser.parse(e.target.result);
-            if (config['DEVICE']) {
-                const isAdded = addDeviceToRegistry(config);
-                if (isAdded) renderDeviceTree(); 
-                populateDeviceForm(config['DEVICE']); 
-                renderModbusTable(config);
-            }
-        };
-        /////////////////////////////////////////////////////////////////////////////
-        reader.onerror = () => showIdModal("Ошибка чтения текстового файла");
-        reader.readAsText(file, 'windows-1251'); 
-        event.target.value = ''; 
-    });
+    //     reader.onload = (e) => {
+    //         const iniParser = new IniParser();
+    //         const config = iniParser.parse(e.target.result);
+    //         if (config['DEVICE']) {
+    //             const isAdded = addDeviceToRegistry(config);
+    //             if (isAdded) renderDeviceTree(); 
+    //             populateDeviceForm(config['DEVICE']); 
+    //             renderModbusTable(config);
+    //         }
+    //     };
+    //     /////////////////////////////////////////////////////////////////////////////
+    //     reader.onerror = () => showIdModal("Ошибка чтения текстового файла");
+    //     reader.readAsText(file, 'windows-1251'); 
+    //     event.target.value = ''; 
+    // });
 
     const actionOpenFile = () => fileInput.click();
     const actionOpenFolder = () => console.log("Вызвано действие: ОТКРЫТЬ ПАПКУ (в разработке)");
 
-    if (folderActionBtn) {
-        folderActionBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (folderDropdown) folderDropdown.classList.remove('show');
-            actionOpenFile();
-        });
-    }
+    // if (folderActionBtn) {
+    //     folderActionBtn.addEventListener('click', (e) => {
+    //         e.stopPropagation();
+    //         if (folderDropdown) folderDropdown.classList.remove('show');
+    //         actionOpenFile();
+    //     });
+    // }
     if (folderArrowBtn) {
         folderArrowBtn.addEventListener('click', (e) => {
             e.stopPropagation();
