@@ -1,4 +1,3 @@
-console.log("Модуль tree-ui.js загружен!");
 import { populateDeviceForm } from '../ui.js';
 import { renderModbusTable } from '../tree.js';
 import { deviceRegistry, setCurrentDeviceConfig, hexToFloat32, float32ToHex } from './tree-core.js';

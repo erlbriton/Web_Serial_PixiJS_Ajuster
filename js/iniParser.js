@@ -1,63 +1,67 @@
-class IniParser {
+/**
+ * Класс IniParser
+ * Предназначен для обработки INI-файлов WebAjuster.
+ * Работает в два этапа: 
+ * 1. Сбор переменных из секции [vars].
+ * 2. Парсинг данных с автоматическим расчетом множителей (разрешением ссылок на переменные).
+ */
+export class IniParser {
     constructor() {
+        // Итоговый объект со всеми данными файла
         this.parsedData = {};
-        // Здесь мы создаем пустой объект, который будет "базой" множителей
+        
+        // Кэш множителей: содержит уже готовые числовые значения (или строки-числа)
+        // Структура: { Секция: { Ключ: Значение_множителя } }
         this.multiplierCache = {};
-        this.varsDictionary = {}; // Здесь будут лежать значения [vars]    
+        
+        // Словарь переменных: хранит пары ключ-значение из секции [vars]
+        this.varsDictionary = {}; 
     }
 
     /**
-     * Возвращает множитель для конкретного параметра.
-     * @param {string} section - Имя секции (например, 'FLASH')
-     * @param {string} key - Имя ключа (например, 'VOLT_ADC')
-     * @returns {string} - Множитель (по умолчанию "1.0")
+     * Вспомогательный метод для получения множителя (для обратной совместимости).
+     * @returns {number} - Числовое значение множителя
      */
-
-    //Заполняем словарь [VARS]
     getMultiplier(section, key) {
-    // 1. Берем сырую ссылку (например, "CINScale" или "0.0226")
-    const rawVal = this.multiplierCache[section]?.[key] || "1.0";
-
-    // 2. Если в словаре varsDictionary есть такое значение, берем его
-    // Если нет (это просто число), оставляем как есть
-    const valueToParse = this.varsDictionary[rawVal] || rawVal;
-
-    // 3. Преобразуем в число
-    const floatVal = parseFloat(valueToParse.replace(',', '.'));
-    return isNaN(floatVal) ? 1.0 : floatVal;
-}
+        const rawVal = this.multiplierCache[section]?.[key] || "1.0";
+        // Если в словаре был какой-то текст, здесь он уже будет разрешен в число
+        const floatVal = parseFloat(rawVal.replace(',', '.'));
+        return isNaN(floatVal) ? 1.0 : floatVal;
+    }
 
     /**
-     * Основная функция парсинга текста INI файла
-     * @param {string} text - Содержимое файла
-     * @returns {object} - Структурированный объект с данными
+     * Основная точка входа для парсинга текста.
      */
-
     parse(text) {
-        // 1. Очищаем все старые данные
+        // Очищаем состояние перед новым парсингом
         this.parsedData = {};
         this.varsDictionary = {};
+        this.multiplierCache = {};
 
-        // 2. Разбиваем текст на строки
         const lines = text.split(/\r?\n/);
 
-        // 3. Вызываем методы через this
-        this.scanVariables(lines); // Первый проход: сбор словаря
-        this.parseData(lines);     // Второй проход: парсинг данных с учетом словаря
+        // 1. Первый проход: заполняем словарь [vars]
+        this.scanVariables(lines);
+        
+        // 2. Второй проход: парсим данные, используя накопленный словарь
+        this.parseData(lines);
+        
         return this.parsedData;
     }
     
-    // 2. ПЕРВЫЙ ПРОХОД: Собираем только словарь переменных
+    /**
+     * Сбор всех переменных из секции [vars].
+     * Необходимо выполнить до основного парсинга данных.
+     */
     scanVariables(lines) {
         let inVars = false;
         for (const line of lines) {
             const trimmed = line.trim();
 
-            // Переключаем режим, если встретили заголовок
             if (trimmed === '[vars]') { inVars = true; continue; }
-            if (trimmed.startsWith('[')) { inVars = false; } // Вышли из секции
+            if (trimmed.startsWith('[')) { inVars = false; } // Выход из секции [vars]
 
-            // Если мы в [vars] и есть '=', сохраняем
+            // Сохраняем все найденные пары ключ=значение в словарь
             if (inVars && trimmed.includes('=')) {
                 const [key, value] = trimmed.split('=');
                 this.varsDictionary[key.trim()] = value.trim();
@@ -65,131 +69,76 @@ class IniParser {
         }
     }
 
-    // Второй проход: парсим всё остальное
+    /**
+     * Основной парсинг данных файла.
+     * Здесь происходит "разрешение" множителей: ссылки (напр. "CINScale") 
+     * заменяются на реальные значения из словаря.
+     */
     parseData(lines) {
-    let currentSection = null;
+        let currentSection = null;
 
-    for (const line of lines) {
-        // Исправлено: не меняем 'line', а создаем новую переменную
-        const trimmedLine = line.trim();
+        for (const line of lines) {
+            const trimmedLine = line.trim();
 
-        // Игнорируем пустые строки и комментарии
-        if (trimmedLine === '' || trimmedLine.startsWith(';')) {
-            continue;
-        }
+            if (trimmedLine === '' || trimmedLine.startsWith(';')) continue;
 
-        // Ищем заголовок секции
-        const sectionMatch = trimmedLine.match(/^\[(.*?)\]$/);
-        if (sectionMatch) {
-            currentSection = sectionMatch[1].toUpperCase();
-            this.parsedData[currentSection] = {};
-            continue;
-        }
+            // Определяем текущую секцию
+            const sectionMatch = trimmedLine.match(/^\[(.*?)\]$/);
+            if (sectionMatch) {
+                currentSection = sectionMatch[1].toUpperCase();
+                this.parsedData[currentSection] = {};
+                continue;
+            }
 
-        // Парсим пары ключ=значение
-        if (currentSection !== null && trimmedLine.includes('=')) {
-            const splitIndex = trimmedLine.indexOf('=');
-            const key = trimmedLine.substring(0, splitIndex).trim();
-            const rawValue = trimmedLine.substring(splitIndex + 1).trim();
+            // Обработка пар ключ=значение
+            if (currentSection !== null && trimmedLine.includes('=')) {
+                const splitIndex = trimmedLine.indexOf('=');
+                const key = trimmedLine.substring(0, splitIndex).trim();
+                const rawValue = trimmedLine.substring(splitIndex + 1).trim();
 
-            if (['RAM', 'CD', 'FLASH', 'EVENTS', 'STAT'].includes(currentSection) && rawValue.includes('/')) {
-                let valuesArray = rawValue.split('/');
-                if (valuesArray[valuesArray.length - 1] === '') {
-                    valuesArray.pop();
+                // Проверяем, нужно ли вычислять множитель для этой секции.
+                // Исключаем EVENTS и STAT, так как у них нет множителей (индекса 6).
+                const supportsMultiplier = ['RAM', 'CD', 'FLASH'].includes(currentSection);
+
+                if (supportsMultiplier && rawValue.includes('/')) {
+                    let valuesArray = rawValue.split('/');
+                    if (valuesArray[valuesArray.length - 1] === '') valuesArray.pop();
+                    
+                    this.parsedData[currentSection][key] = valuesArray;
+
+                    if (!this.multiplierCache[currentSection]) {
+                        this.multiplierCache[currentSection] = {};
+                    }
+                    
+                    // --- ЛОГИКА РАЗРЕШЕНИЯ МНОЖИТЕЛЯ ---
+                    // 1. Берем сырое значение (индекс 6 — это множитель по формату)
+                    const rawScale = (valuesArray[6] || "1.0").trim();
+                    
+                    // 2. Ищем значение в словаре переменных. 
+                    // Если ключ найден — берем значение из словаря, если нет — считаем, что это число.
+                    this.multiplierCache[currentSection][key] = this.varsDictionary.hasOwnProperty(rawScale) 
+                        ? this.varsDictionary[rawScale] 
+                        : rawScale;
+
+                } else {
+                    // Обычные параметры без множителей
+                    this.parsedData[currentSection][key] = rawValue;
                 }
-                this.parsedData[currentSection][key] = valuesArray;
-
-                if (!this.multiplierCache[currentSection]) {
-                    this.multiplierCache[currentSection] = {};
-                }
-                
-                // Сохраняем сырое значение (например, "CINScale")
-                this.multiplierCache[currentSection][key] = valuesArray[6] || "1.0";
-
-            } else {
-                this.parsedData[currentSection][key] = rawValue;
             }
         }
+        
+        // Отладочный вывод для проверки: в кэше должны быть только числа
+        console.log("DEBUG: Содержимое multiplierCache:", this.multiplierCache);
+        return this.parsedData;
     }
-    return this.parsedData;
-}
-
-
-
-    // parse(text) {
-    //     this.parsedData = {};
-    //     let currentSection = null;
-
-    //     // Разбиваем текст на строки, поддерживая разные форматы переноса каретки
-    //     const lines = text.split(/\r?\n/);
-
-
-
-    //     for (let line of lines) {
-    //         line = line.trim();
-
-    //         // Игнорируем пустые строки и комментарии
-    //         if (line === '' || line.startsWith(';')) {
-    //             continue;
-    //         }
-
-    //         // Ищем заголовок секции, например [RAM]
-    //         const sectionMatch = line.match(/^\[(.*?)\]$/);
-    //         if (sectionMatch) {
-    //             // Приводим названия секций к верхнему регистру для единообразия
-    //             currentSection = sectionMatch[1].toUpperCase();
-    //             this.parsedData[currentSection] = {};
-    //             continue;
-    //         }
-
-    //         // Парсим пары ключ=значение
-    //         if (currentSection !== null && line.includes('=')) {
-    //             // Разделяем только по первому знаку '=', так как в значении могут быть еще '='
-    //             const splitIndex = line.indexOf('=');
-    //             const key = line.substring(0, splitIndex).trim();
-    //             let rawValue = line.substring(splitIndex + 1).trim();
-
-    //             // Если это секции с параметрами, разделенными слэшем '/'
-    //             if (['RAM', 'CD', 'FLASH', 'EVENTS', 'STAT'].includes(currentSection) && rawValue.includes('/')) {
-    //                 // Разбиваем строку в массив и удаляем последний пустой элемент, 
-    //                 // если строка заканчивалась на '/'
-    //                 let valuesArray = rawValue.split('/');
-    //                 if (valuesArray[valuesArray.length - 1] === '') {
-    //                     valuesArray.pop();
-    //                 }
-    //                 this.parsedData[currentSection][key] = valuesArray;
-
-    //                 if (!this.multiplierCache[currentSection]) {
-    //                     this.multiplierCache[currentSection] = {};
-    //                 }
-
-    //                 // 2. Кладем множитель в кэш. 
-    //                 // Ключ - это имя параметра (key), значение - 6-й элемент массива (valuesArray[6])
-    //                 // Если значения там нет, ставим "1.0" (как безопасный фолбек)
-    //                 this.multiplierCache[currentSection][key] = valuesArray[6] || "1.0";
-
-    //             } else {
-    //                 // Обычное значение (для [DEVICE], [vars] и т.д.)
-    //                 this.parsedData[currentSection][key] = rawValue;
-    //             }
-    //         }
-    //     }
-
-    //     return this.parsedData;
-    // }
 
     /**
-     * Вспомогательный метод: Возвращает объект с именованными полями для параметра
-     * на основе структуры из документации.
+     * Вспомогательный метод для получения структуры параметра.
      */
     getParsedParameter(section, key) {
         const dataArray = this.parsedData[section.toUpperCase()]?.[key];
+        if (!Array.isArray(dataArray)) return null;
 
-        if (!Array.isArray(dataArray)) {
-            return null; // Если параметра нет или это не массив
-        }
-
-        // Базовый маппинг на основе структуры (Имя/Описание/Тип/АдресHex/АдресReg/...)
         return {
             name: dataArray[0] || "",
             description: dataArray[1] || "",
@@ -200,7 +149,7 @@ class IniParser {
             multiplier: dataArray[6] || "",
             byteCount: dataArray[7] || "",
             sign: dataArray[8] || "",
-            value: dataArray[9] || dataArray[8] || "" // Значение может смещаться в зависимости от формата
+            value: dataArray[9] || dataArray[8] || ""
         };
     }
 }

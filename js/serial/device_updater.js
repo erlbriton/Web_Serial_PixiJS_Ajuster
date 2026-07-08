@@ -3,32 +3,56 @@ import { hexToFloat32, float32ToHex } from '../ini-manager/tree-core.js';
 import { calculateCRC, serialManager } from '../serial-actions.js';
 
 /**
- * Вспомогательная функция для получения множителя.
- * Ищет значение в словаре переменных парсера, если не находит — возвращает число.
+ * Вспомогательная функция для получения готового множителя из кэша.
+ * Теперь множители уже разрешены на этапе парсинга INI-файла.
  */
-function resolveScale(rawStr, appState) {
-    if (!rawStr) return 1.0;
 
-    // Пытаемся получить varsDictionary из вашего экземпляра парсера, который лежит в appState
-    // Если appState нет или он другой, fallback на старую логику или 1.0
-    const vars = appState?.parser?.varsDictionary || {};
-
-    const key = rawStr.trim().toLowerCase();
-
-    // Если ключ есть в нашем словаре переменных - берем его, иначе считаем, что это число
-    const val = vars.hasOwnProperty(key) ? vars[key] : rawStr;
-
-    // Преобразуем (заменяем запятую на точку для надежности)
-    const numericValue = parseFloat(val.toString().replace(',', '.'));
-
-    return isNaN(numericValue) ? 1.0 : numericValue;
+function getScaleFromCache(appState, section, key) {
+    // ВЫВОДИМ ВЕСЬ ОБЪЕКТ ПАРСЕРА В КОНСОЛЬ
+    console.log("DEBUG: Текущий объект parser в appState:", appState?.parser);
+    
+    const cache = appState?.parser?.multiplierCache;
+    
+    if (!cache) {
+        console.warn("DEBUG: Cache is undefined in appState");
+        return 1.0;
+    }
+    
+    if (cache[section] && cache[section][key] !== undefined) {
+        const val = parseFloat(cache[section][key].replace(',', '.'));
+        console.log(`DEBUG: Found multiplier for ${section}[${key}]:`, val);
+        return val;
+    }
+    
+    console.warn(`DEBUG: No multiplier found in cache for ${section}[${key}]`);
+    return 1.0;
 }
+
+// function getScaleFromCache(appState, section, key) {
+//     const cache = appState?.parser?.multiplierCache;
+    
+//     // Включаем логирование для отладки
+//     if (!cache) {
+//         console.warn("DEBUG: Cache is undefined in appState");
+//         return 1.0;
+//     }
+//     if (!section || !key) {
+//         console.warn("DEBUG: Missing section or key", { section, key });
+//         return 1.0;
+//     }
+    
+//     // Проверяем, есть ли данные в кэше
+//     if (cache[section] && cache[section][key] !== undefined) {
+//         const val = parseFloat(cache[section][key].replace(',', '.'));
+//         console.log(`DEBUG: Found multiplier for ${section}[${key}]:`, val);
+//         return val;
+//     }
+    
+//     console.warn(`DEBUG: No multiplier found in cache for ${section}[${key}]`);
+//     return 1.0;
+// }
 
 let isUpdating = false;
-
-async function flushSerialBuffer(serial) {
-    // Больше не требуется, так как единый ридер сам контролирует поток данных
-}
 
 export async function updateDeviceRegisters(serial, slaveAddress = 0x01, appState = null) {
     if (isUpdating) return false;
@@ -126,29 +150,19 @@ export async function updateDeviceRegisters(serial, slaveAddress = 0x01, appStat
                                         const dataType = tr.getAttribute('data-type') || '';
                                         const sub = tr.getAttribute('data-sub') || '';
                                         const hIdx = parseInt(tr.getAttribute('data-hex-index') || '0');
+                                        
+                                        // Получаем атрибуты для кэша
+                                        const section = tr.getAttribute('data-section');
+                                        const key = tr.getAttribute('data-key');
 
                                         let originalHexLen = 4;
                                         if (parts[hIdx] && parts[hIdx].startsWith('x')) {
                                             originalHexLen = parts[hIdx].slice(1).length;
                                         }
 
-                                        // Разрешение множителя
-                                        let scale = 1.0;
-                                        let scaleStr = '1.0';
-
-                                        if (parts[6]) {
-                                            scaleStr = parts[6].trim();
-
-                                            // Вызываем наш новый метод
-                                            scale = resolveScale(scaleStr, appState);
-
-                                            // Сохраняем строку обратно в формате с запятой, если нужно
-                                            scaleStr = scale.toString().replace('.', ',');
-                                        }
-                                        if (isNaN(scale)) {
-                                            scale = 1.0;
-                                            scaleStr = '1.0';
-                                        }
+                                        // --- НОВАЯ ЛОГИКА: Берем готовый множитель из кэша ---
+                                        const scale = getScaleFromCache(appState, section, key);
+                                        const scaleStr = scale.toString().replace('.', ',');
 
                                         let prmListOptions = {};
                                         for (let j = parts.length - 1; j >= 3; j--) {
