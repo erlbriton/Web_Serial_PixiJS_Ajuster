@@ -71,6 +71,8 @@ export function renderModbusTable(config) {
 
             const tr = document.createElement('tr');
             tr.setAttribute('data-type', dataType);
+            tr.setAttribute('data-section', selectedMode); // НОВАЯ СТРОКА
+            tr.setAttribute('data-key', key);              // НОВАЯ СТРОКА
             if (parsedAddr.reg !== null) {
                 tr.setAttribute('data-reg', parsedAddr.reg.toString(16));
                 if (parsedAddr.sub) {
