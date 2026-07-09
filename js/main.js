@@ -5,7 +5,8 @@ import { renderDeviceTree } from './ini-manager/tree-ui.js';
 import { updateDeviceRegisters } from './serial/device_updater.js';
 import { setupFileHandling } from './file-loader.js';
 import { IniParser } from './iniParser.js';
-
+import { RingBuffer } from './oscilloscope/ringBuffer.js';
+import { SerialConnection } from './serial/serial.js';
 import { 
     updateComInterfaceName, 
     executeDeviceIdentification, 

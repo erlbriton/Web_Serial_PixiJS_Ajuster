@@ -1,5 +1,7 @@
 import { identifyUsbChip } from './usb.js';
 import { showIdModal, updateIdBanner, closeIdModal } from './ui.js';
+import { currentDeviceConfig } from './ini-manager/tree-core.js';
+import { calculateRamRange } from './oscilloscope/ringBuffer.js';
 
 let lastPacketTime = 0;
 let currentLoopId = 0; 
@@ -188,31 +190,42 @@ export async function executeDeviceIdentification(serial, comSelect, stateObj) {
 }
 
 export async function readLoop(serial, parser, view, buffers, stateObj) {
+    // Проверка наличия конфига
+    if (!currentDeviceConfig || !currentDeviceConfig['RAM']) {
+        console.error("[LOOP] Конфигурация RAM не загружена. Остановка цикла.");
+        return; 
+    }
+
+    // Динамический расчет адреса и количества регистров из INI
+    const ramSection = currentDeviceConfig['RAM'];
+    const { start, count } = calculateRamRange(ramSection);
+    
     const loopId = ++currentLoopId; 
-    console.log(`[LOOP] Старт единого цикла опроса осциллографа #${loopId}`);
+    console.log(`[LOOP] Старт цикла #${loopId}. Читаем RAM: от 0x${start.toString(16)} по ${count} рег.`);
     
     serialManager.init(serial);
 
     while (serial.isConnected && stateObj.isPolling && !stateObj.isRefreshing) {
         if (loopId !== currentLoopId) return; 
 
-        // Шаг 1.1: Автономно собираем пакет запроса осциллографа (70 регистров)
+        // Формируем пакет с динамическими данными
         const body = new Uint8Array([
             stateObj.slaveAddress, 0x03, 
-            (stateObj.registerAddr >> 8) & 0xFF, stateObj.registerAddr & 0xFF, 
-            0x00, 0x46 
+            (start >> 8) & 0xFF, start & 0xFF, 
+            (count >> 8) & 0xFF, count & 0xFF 
         ]);
+        
         const crc = calculateCRC(body);
         const finalPacket = new Uint8Array(8);
         finalPacket.set(body, 0);
         finalPacket[6] = crc & 0xFF;
         finalPacket[7] = (crc >> 8) & 0xFF;
 
-        // Шаг 1.2: Задаем жесткий критерий полноты Modbus-ответа (3 байта заголовок + 140 байт данных + 2 байта CRC = 145 байт)
-        const checkComplete = (buf) => buf.length >= 145;
+        // Динамический критерий полноты ответа (3 байта заголовок + данные + 2 байта CRC)
+        const expectedBytes = 3 + (count * 2) + 2;
+        const checkComplete = (buf) => buf.length >= expectedBytes;
 
         try {
-            // Шаг 1.3: Отправляем транзакцию в общую безопасную очередь портов
             const reply = await serialManager.executeTransaction(finalPacket, checkComplete, 100);
             
             if (loopId !== currentLoopId) return; 
@@ -222,20 +235,19 @@ export async function readLoop(serial, parser, view, buffers, stateObj) {
                 parser.appendData(reply);
                 let packetData = parser.parsePacket();
                 while (packetData !== null) {
-                    if (packetData.length >= 70) {
+                    if (packetData.length >= count) {
                         handleValidPacket(packetData, view, buffers);
                     }
                     packetData = parser.parsePacket();
                 }
             }
         } catch (err) {
-            console.error("[LOOP] Транзакция осциллографа прервана ошибкой:", err);
+            console.error("[LOOP] Транзакция осциллографа прервана:", err);
         }
 
-        // Пауза между транзакциями опроса
         await new Promise(res => setTimeout(res, 20));
     }
-    console.log(`[LOOP] Цикл #${loopId} опроса осциллографа корректно остановлен.`);
+    console.log(`[LOOP] Цикл #${loopId} корректно остановлен.`);
 }
 
 export async function writeLoop(serial, stateObj) {

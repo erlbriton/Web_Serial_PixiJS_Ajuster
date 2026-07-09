@@ -1,5 +1,8 @@
 // ringBuffer.js
-class RingBuffer {
+
+import { parseRegisterAddress } from '../ini-manager/tree-core.js';
+
+export class RingBuffer {
     constructor(capacity) {
         this.capacity = capacity;
         this.buffer = new Float32Array(capacity);
@@ -29,4 +32,38 @@ class RingBuffer {
         }
         return result;
     }
+}
+/**
+ * Вычисляет начальный адрес и количество регистров для чтения секции RAM.
+ * @param {Object} ramSection - Объект с данными секции RAM из парсера.
+ * @returns {Object} { start: number, count: number }
+ */
+export function calculateRamRange(ramSection) {
+    let minAddr = Infinity;
+    let maxAddr = -Infinity;
+
+    for (const key in ramSection) {
+        const parts = ramSection[key];
+        const dataType = parts[2] || '';
+        
+        // Получаем адрес, учитывая специфику TBit
+        const regAddrString = (dataType === 'TBit' ? (parts[5] || '') : (parts[4] || ''));
+        const parsed = parseRegisterAddress(regAddrString);
+        
+        if (parsed.reg === null) continue;
+
+        const start = parsed.reg;
+        // TFloat и TDWORD занимают 2 регистра
+        const end = (dataType === 'TFloat' || dataType === 'TDWORD') ? start + 1 : start;
+
+        if (start < minAddr) minAddr = start;
+        if (end > maxAddr) maxAddr = end;
+    }
+
+    if (minAddr === Infinity) return { start: 0, count: 0 };
+
+    return {
+        start: minAddr,
+        count: (maxAddr - minAddr) + 1
+    };
 }
