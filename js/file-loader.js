@@ -19,6 +19,9 @@ export function setupFileHandling(fileInput, appState) { // Добавили app
                     const config = appState.parser.parse(e.target.result);
 
                     if (config['DEVICE']) {
+                        // СОХРАНЯЕМ КОНФИГУРАЦИЮ: теперь readLoop увидит секцию 'RAM'
+                        appState.currentDeviceConfig = config;
+
                         const isAdded = addDeviceToRegistry(config);
                         if (isAdded) renderDeviceTree();
                         

@@ -5,6 +5,7 @@
     <title>Web_Serial_Interface</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/7.4.2/pixi.min.js"></script>
     <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/monitor.css" />
   </head>
   <body>
     <div class="app-layout">
@@ -20,7 +21,6 @@
           <button class="tool-btn">📦 ▾</button>
 
           <!-- Скрытые элементы для загрузки файлов и папок -->
-          <!-- <input type="file" id="filePicker" style="display: none;"> -->
           <input
             type="file"
             id="filePicker"
@@ -169,19 +169,7 @@
                   </tr>
                 </thead>
                 <tbody id="grid-data-rows">
-                  <tr>
-                    <td>1</td>
-                    <td>ДлинноеИмяПараметраПользователя</td>
-                    <td>
-                      Очень длинное описание параметра, которое теперь
-                      беспрепятственно обрезается при сжатии
-                    </td>
-                    <td>В</td>
-                    <td>0x00</td>
-                    <td>0.0</td>
-                    <td>0x00</td>
-                    <td>0.0</td>
-                  </tr>
+                 
                 </tbody>
               </table>
             </div>
@@ -194,7 +182,6 @@
     <script src="js/oscilloscope/pixiOscilloscope.js"></script>
     <script type="module" src="js/serial/serial.js"></script>
     <script src="js/serial/modbus.js"></script>
-    <!-- <script type="module" src="js/iniParser.js"></script> -->
     <script type="module" src="js/main.js"></script>
     <script src="js/ui/layout.js"></script>
   </body>

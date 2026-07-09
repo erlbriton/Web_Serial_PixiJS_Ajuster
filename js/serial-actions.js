@@ -190,14 +190,18 @@ export async function executeDeviceIdentification(serial, comSelect, stateObj) {
 }
 
 export async function readLoop(serial, parser, view, buffers, stateObj) {
-    // Проверка наличия конфига
-    if (!currentDeviceConfig || !currentDeviceConfig['RAM']) {
+    console.log("DEBUG: readLoop запущен");
+
+    // Возвращаемся к чтению из объекта состояния, чтобы убрать ошибочный импорт
+    const deviceConfig = stateObj.currentDeviceConfig;
+
+    if (!deviceConfig || !deviceConfig['RAM']) {
         console.error("[LOOP] Конфигурация RAM не загружена. Остановка цикла.");
         return; 
     }
 
     // Динамический расчет адреса и количества регистров из INI
-    const ramSection = currentDeviceConfig['RAM'];
+    const ramSection = deviceConfig['RAM'];
     const { start, count } = calculateRamRange(ramSection);
     
     const loopId = ++currentLoopId; 
@@ -260,5 +264,7 @@ function handleValidPacket(packetData, view, buffers) {
     for (let i = 0; i < 70; i++) {
         buffers[i].push(packetData[i] || 0);
     }
+    // Проверим, является ли view тем объектом, который мы ожидаем
+    console.log("DEBUG: Объект view передан в handleValidPacket:", view);
     view.draw(buffers); 
 }

@@ -1,6 +1,13 @@
 // js/ui/uiManager.js
 import { createOscilloscopeView } from '../views/oscilloscopeView.js';
 
+function injectCSS(href) {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
+}
+
 export function initUI(deps) {
     const { 
         serial, appState, parser, view, buffers, 
@@ -9,8 +16,12 @@ export function initUI(deps) {
     } = deps;
 
     // 1. Внедрение компонента Monitor
+    // Теперь мы берем существующий контейнер и убираем у него класс "hidden"
     const oscContainer = document.getElementById('osc-container');
+    
     if (oscContainer) {
+       // oscContainer.classList.remove('hidden');
+        // Добавляем содержимое (функция createOscilloscopeView должна быть доступна)
         oscContainer.appendChild(createOscilloscopeView());
     }
 
@@ -55,17 +66,24 @@ export function initUI(deps) {
         refreshBtn.addEventListener("click", async () => {
             if (!serial?.isConnected) { showIdModal("Устройство не подключено!"); return; }
             if (appState.isRefreshing) return;
-            appState.isRefreshing = true;
+            
+            appState.isRefreshing = true; // Блокируем всё остальное
             refreshBtn.disabled = true;
+            
             try {
-                const wasPolling = await updateDeviceRegisters(serial, appState.slaveAddress, appState);
-                if (wasPolling) {
-                    appState.isPolling = true;
-                    readLoop(serial, parser, view, buffers, appState);
-                }
+                // 1. Сначала выполняем тяжелое обновление
+                await updateDeviceRegisters(serial, appState.slaveAddress, appState);
+                appState.isPolling = true;
+            } catch (err) {
+                console.error("Ошибка при обновлении:", err);
             } finally {
+                // 2. Сбрасываем флаг БЛОКИРОВКИ ДО запуска цикла
                 appState.isRefreshing = false;
                 refreshBtn.disabled = false;
+                
+                // 3. Теперь, когда isRefreshing == false, запускаем цикл с правильными 5 параметрами
+                console.log("DEBUG: Запускаю readLoop после обновления");
+                readLoop(serial, parser, view, buffers, appState);
             }
         });
     }

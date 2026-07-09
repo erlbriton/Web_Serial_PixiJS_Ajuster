@@ -32,6 +32,8 @@ class ModbusParser {
                         results.push((packet[3 + i] << 8) | packet[4 + i]);
                     }
                     
+                    //console.log("DEBUG: Успешно распарсен пакет, данные:", results);
+                    
                     this.buffer = this.buffer.subarray(fullPacketLength);
                     return results; 
                 } else {
