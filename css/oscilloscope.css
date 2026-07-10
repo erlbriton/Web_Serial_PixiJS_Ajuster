@@ -2,49 +2,152 @@
    КОНТЕЙНЕР СИСТЕМЫ СИГНАЛОВ И ГРАФИКИ (oscilloscope.css)
    ========================================================================== */
 
-/* Контейнер осциллографа в потоке верстки */
+/* Линия-призрак во время перетаскивания */
+.resize-ghost {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #00ff00;
+    z-index: 9999;
+    pointer-events: none;
+    display: none;
+}
+
 #osc-container {
     display: flex;
     flex-direction: column;
-    flex: 1; /* Занимает доступное место рядом с таблицей */
+    flex: 1;
     background: #000;
     min-height: 200px;
 }
 
-/* Базовое состояние: контейнер скрыт */
 #osc-container.hidden {
     display: none !important;
 }
 
-/* Промежуточный контейнер внутри осциллографа */
 .osc-internal-container {
     display: flex;
     flex-direction: column;
     flex: 1;
     height: 100%;
     width: 100%;
+    position: relative;
 }
 
-/* Растягиваем область с графиками внутри контейнера */
 .osc-content-area {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     flex: 1;
     width: 100%;
+    overflow: hidden;
+    background: #111;
+}
+
+/* Обертка таблицы. flex-basis задается через JS */
+.osc-table-wrapper {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background: #0a0a0a;
+    flex: 0 0 460px;
+    min-width: 50px;
+}
+
+/* ВАЖНО: Убрали width: 100%, чтобы колонки не прыгали */
+.osc-data-grid {
+    border-collapse: collapse;
+    table-layout: fixed;
+    border-spacing: 0;
+}
+
+.osc-data-grid th {
+    background: #222;
+    color: #aaa;
+    font-weight: bold;
+    padding: 6px 8px;
+    font-size: 12px;
+    text-align: center;
+    border-right: 1px solid #333;
+    border-bottom: 2px solid #333;
+    box-sizing: border-box;
+    height: 31px;
     position: relative;
+    white-space: nowrap;
     overflow: hidden;
 }
 
-/* Явное управление контейнером холста PIXI */
+.col-resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 1;
+}
+.col-resizer:hover {
+    background: #555;
+}
+
+.osc-data-grid tr {
+    height: 20px;
+}
+
+.osc-data-grid td {
+    height: 20px;
+    padding: 0 8px;
+    font-size: 12px;
+    color: #fff;
+    border-right: 1px solid #222;
+    border-bottom: 1px solid #222;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: middle;
+}
+
+.osc-canvas-column {
+    display: flex;
+    flex-direction: column;
+    flex: 1; 
+    min-width: 50px;
+    background: #000;
+    overflow: hidden;
+}
+
+.osc-graph-header {
+    background: #222;
+    color: #aaa;
+    font-weight: bold;
+    padding: 6px 8px;
+    font-size: 12px;
+    text-align: center;
+    border-bottom: 2px solid #333;
+    height: 31px;
+    box-sizing: border-box;
+    line-height: 17px;
+}
+
 #osc-canvas-container {
     flex: 1;
     width: 100%;
     height: 100%;
+    background: #000;
 }
 
-/* Гарантируем, что холст PIXI займет всю область контента */
 #osc-container canvas {
     display: block;
     width: 100% !important;
     height: 100% !important;
+}
+
+.osc-resizer-split {
+    width: 6px;
+    cursor: col-resize;
+    background: #222;
+    z-index: 10;
+}
+.osc-resizer-split:hover {
+    background: #555;
 }
