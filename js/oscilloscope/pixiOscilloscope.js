@@ -1,4 +1,4 @@
-class PixiOscilloscope {
+export class PixiOscilloscope {
     constructor(containerId) {
         const container = document.getElementById(containerId);
         if (!container) {
@@ -109,5 +109,35 @@ class PixiOscilloscope {
             }
         }
         this.app.renderer.render(this.app.stage);
+    }
+
+   forceResize() {
+        const container = this.app?.view?.parentElement;
+        if (!container) return;
+
+        // ВАЖНО: Если браузер сплющил контейнер (высота 0), разворачиваем его!
+        if (container.clientHeight === 0 || container.getBoundingClientRect().height === 0) {
+            container.style.height = '600px';
+        }
+
+        const rect = container.getBoundingClientRect();
+        console.log("DEBUG: forceResize вызван! Размеры после корректировки:", rect.width, "x", rect.height);
+        
+        if (rect.width > 0 && rect.height > 0 && this.app?.renderer) {
+            this.width = rect.width;
+            this.height = rect.height;
+            this.app.renderer.resize(this.width, this.height);
+            
+            // Используем requestAnimationFrame, чтобы дождаться готовности сцены и избежать ошибки transform
+            requestAnimationFrame(() => {
+                if (this.app?.stage && !this.app.stage.destroyed) {
+                    this.app.stage.updateTransform();
+                    this.app.renderer.render(this.app.stage);
+                    console.log("DEBUG: Resize выполнен в следующем кадре:", this.width, "x", this.height);
+                }
+            });
+        } else {
+            console.warn("DEBUG: ОШИБКА! Размеры контейнера 0 или renderer не готов.");
+        }
     }
 }

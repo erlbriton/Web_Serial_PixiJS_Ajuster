@@ -4,6 +4,7 @@ import { RingBuffer } from './oscilloscope/ringBuffer.js';
 import { SerialConnection } from './serial/serial.js';
 import { initUI } from './ui/uiManager.js';
 import { createOscilloscopeView } from './views/oscilloscopeView.js';
+import { PixiOscilloscope } from './oscilloscope/pixiOscilloscope.js';
 
 // Импорты логики
 import { showIdModal } from './ui.js';
@@ -30,6 +31,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const view = new PixiOscilloscope('osc-canvas-container');
         const buffers = Array.from({ length: 70 }, () => new RingBuffer(2500));
+        
+        // Экспортируем view в глобальную область или делаем доступным для uiManager
+        window.oscView = view;
         const serial = new SerialConnection();
         const parser = new ModbusParser();
 

@@ -265,6 +265,5 @@ function handleValidPacket(packetData, view, buffers) {
         buffers[i].push(packetData[i] || 0);
     }
     // Проверим, является ли view тем объектом, который мы ожидаем
-    console.log("DEBUG: Объект view передан в handleValidPacket:", view);
     view.draw(buffers); 
 }

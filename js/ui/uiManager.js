@@ -22,7 +22,7 @@ export function initUI(deps) {
     if (oscContainer) {
        // oscContainer.classList.remove('hidden');
         // Добавляем содержимое (функция createOscilloscopeView должна быть доступна)
-        oscContainer.appendChild(createOscilloscopeView());
+        //oscContainer.appendChild(createOscilloscopeView());
     }
 
     // 2. DOM Элементы
@@ -91,8 +91,34 @@ export function initUI(deps) {
     if (toggleOscBtn) {
         toggleOscBtn.addEventListener('click', () => {
             if (!serial.isConnected) return;
-            appState.isPolling = !appState.isPolling;
-            if (appState.isPolling) readLoop(serial, parser, view, buffers, appState);
+            
+            const oscContainer = document.getElementById('osc-container');
+            
+            // Если сейчас НЕ опрашиваем, значит кнопка должна ЗАПУСТИТЬ и ПОКАЗАТЬ осциллограф
+            const isStarting = !appState.isPolling;
+            
+            console.log("DEBUG: Кнопка нажата. Будем запускать? =", isStarting);
+
+            if (oscContainer) {
+                if (isStarting) {
+                    // Принудительно ПОКАЗЫВАЕМ
+                    oscContainer.classList.remove('hidden');
+                    oscContainer.style.display = 'block';
+                    
+                    if (view && typeof view.forceResize === 'function') {
+                        setTimeout(() => view.forceResize(), 50);
+                    }
+                } else {
+                    // Принудительно СКРЫВАЕМ
+                    oscContainer.classList.add('hidden');
+                    oscContainer.style.display = 'none';
+                }
+            }
+
+            appState.isPolling = isStarting;
+            if (appState.isPolling) {
+                readLoop(serial, parser, view, buffers, appState);
+            }
         });
     }
 
