@@ -72,6 +72,11 @@ export class PixiOscilloscope {
         const viewTop = -this.scrollY;
         const viewBottom = viewTop + this.height;
 
+        // Корректировка: шаг между линиями 50 пикселей и смещение 50 пикселей в секунду
+        const gridSpacing = 50;
+        const timePhasePx = ((Date.now() % 1000) / 1000) * gridSpacing;
+        const gridStartX = this.width - timePhasePx;
+
         for (let i = 0; i < this.totalRows; i++) {
             const g = this.graphicsList[i];
             const yOffset = i * this.rowHeight;
@@ -91,6 +96,14 @@ export class PixiOscilloscope {
             if (buffer) {
                 const data = buffer.getLinearData();
                 if (data && data.length > 1) {
+                    // 1. Отрисовка тонких вертикальных линий сетки под графиком (шаг 50px)
+                    g.lineStyle(1, 0x333333, 1); 
+                    for (let x = gridStartX; x >= 0; x -= gridSpacing) {
+                        g.moveTo(x, yOffset);
+                        g.lineTo(x, yOffset + this.rowHeight);
+                    }
+
+                    // 2. Отрисовка самого графика поверх сетки
                     g.lineStyle(1, this.brightColors[i % 10], 1);
                     let started = false;
                     for (let j = 0; j < data.length; j++) {
@@ -111,11 +124,10 @@ export class PixiOscilloscope {
         this.app.renderer.render(this.app.stage);
     }
 
-   forceResize() {
+    forceResize() {
         const container = this.app?.view?.parentElement;
         if (!container) return;
 
-        // ВАЖНО: Если браузер сплющил контейнер (высота 0), разворачиваем его!
         if (container.clientHeight === 0 || container.getBoundingClientRect().height === 0) {
             container.style.height = '600px';
         }
@@ -128,7 +140,6 @@ export class PixiOscilloscope {
             this.height = rect.height;
             this.app.renderer.resize(this.width, this.height);
             
-            // Используем requestAnimationFrame, чтобы дождаться готовности сцены и избежать ошибки transform
             requestAnimationFrame(() => {
                 if (this.app?.stage && !this.app.stage.destroyed) {
                     this.app.stage.updateTransform();
