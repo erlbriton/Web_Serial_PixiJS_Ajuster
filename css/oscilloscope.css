@@ -1,5 +1,6 @@
 #osc-container {
     display: flex;
+    flex-direction: column; /* Теперь это колонка: сверху тулбар, снизу рабочая область */
     flex: 1;
     height: 100%;
     width: 100%;
@@ -7,16 +8,83 @@
     background: #000;
 }
 
+/* =========================================
+   ПАНЕЛЬ ИНСТРУМЕНТОВ И КНОПКИ (Ретро 3D Темная Тема)
+   ========================================= */
+.osc-toolbar {
+    display: flex;
+    flex: 0 0 auto;
+    padding: 4px 6px;
+    background: #333333; /* Базовый темный фон панели */
+    border-bottom: 2px solid #1a1a1a;
+    gap: 4px;
+}
+
+.osc-btn {
+    width: 60px;
+    height: 30px;
+    background: #3a3a3a; /* Цвет самой кнопки */
+    /* Имитация 3D-выпуклости */
+    border-top: 2px solid #5d5d5d;
+    border-left: 2px solid #5d5d5d;
+    border-bottom: 2px solid #151515;
+    border-right: 2px solid #151515;
+    border-radius: 0; /* Классические кнопки строго прямоугольные */
+    color: #cccccc;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    outline: none;
+    box-sizing: border-box;
+}
+
+.osc-btn:hover {
+    background: #424242;
+    color: #ffffff;
+}
+
+/* Эффект вдавленности при нажатии */
+.osc-btn:active {
+    background: #333333;
+    border-top: 2px solid #151515;
+    border-left: 2px solid #151515;
+    border-bottom: 2px solid #5d5d5d;
+    border-right: 2px solid #5d5d5d;
+}
+
+/* Сдвиг иконки при нажатии для реалистичности */
+.osc-btn:active svg {
+    transform: translate(1px, 1px);
+}
+
+.osc-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+/* =========================================
+   ОСНОВНАЯ РАБОЧАЯ ОБЛАСТЬ (Таблица + Графики)
+   ========================================= */
+.osc-main-area {
+    display: flex;
+    flex: 1;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+}
+
 /* Обертка таблицы */
 .osc-table-wrapper {
-    flex: 0 0 460px; /* ЭТО значение мы теперь будем менять мышкой */
+    flex: 0 0 460px;
     height: 100%;
     overflow-y: auto;
     overflow-x: hidden;
     background: #0a0a0a;
 }
 
-/* НОВЫЙ ЭЛЕМЕНТ: Главный разделитель между таблицей и графиками */
+/* Главный разделитель между таблицей и графиками */
 .osc-main-splitter {
     width: 4px;
     background: #333;
