@@ -29,7 +29,7 @@ export function createOscilloscopeView() {
         <div class="osc-canvas-column" id="osc-canvas-container"></div>
     `;
 
-    // 1. ЛОГИКА РЕСАЙЗА ВСЕЙ ПАНЕЛИ (МЕНЯЕТ ШИРИНУ ГРАФИКОВ)
+    // 1. ЛОГИКА РЕСАЙЗА ВСЕЙ ПАНЕЛИ (СКАЧКОМ ПО ОТПУСКАНИЮ МЫШИ)
     const leftPanel = container.querySelector('#osc-left-panel');
     const panelSplitter = container.querySelector('#osc-panel-splitter');
 
@@ -40,18 +40,32 @@ export function createOscilloscopeView() {
 
         const startX = e.clientX;
         const startWidth = leftPanel.offsetWidth;
+        let finalWidth = startWidth; // Переменная для хранения итоговой ширины
 
         const doPanelDrag = (moveEvent) => {
-            let newWidth = startWidth + (moveEvent.clientX - startX);
-            if (newWidth < 200) newWidth = 200; // Минимальная ширина левой панели
+            let delta = moveEvent.clientX - startX;
+            finalWidth = startWidth + delta;
             
-            // Меняем ширину левой панели. Графики (flex: 1) сожмутся/растянутся автоматически.
-            leftPanel.style.flex = `0 0 ${newWidth}px`;
+            // Ограничение минимальной ширины
+            if (finalWidth < 200) {
+                finalWidth = 200;
+                delta = 200 - startWidth; // Корректируем смещение разделителя
+            }
+
+            // ВАЖНО: Двигаем только сам сплиттер визуально, не трогая размеры панелей!
+            panelSplitter.style.transform = `translateX(${delta}px)`;
         };
 
         const stopPanelDrag = () => {
             panelSplitter.classList.remove('active');
             document.body.classList.remove('is-resizing');
+            
+            // Убираем визуальное смещение сплиттера
+            panelSplitter.style.transform = '';
+            
+            // И только теперь ОДНИМ СКАЧКОМ применяем новую ширину
+            leftPanel.style.flex = `0 0 ${finalWidth}px`;
+            
             window.removeEventListener('mousemove', doPanelDrag);
             window.removeEventListener('mouseup', stopPanelDrag);
         };
@@ -60,7 +74,7 @@ export function createOscilloscopeView() {
         window.addEventListener('mouseup', stopPanelDrag);
     });
 
-    // 2. ЛОГИКА РЕСАЙЗА КОЛОНОК ВНУТРИ ТАБЛИЦЫ
+    // 2. ЛОГИКА РЕСАЙЗА КОЛОНОК ВНУТРИ ТАБЛИЦЫ (Остается плавной, т.к. не влияет на графики)
     const table = container.querySelector('.osc-data-grid');
     const headers = container.querySelectorAll('.osc-data-grid thead th');
     const cols = container.querySelectorAll('colgroup col');
