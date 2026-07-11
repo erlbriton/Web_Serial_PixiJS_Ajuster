@@ -1,153 +1,72 @@
-/* ==========================================================================
-   КОНТЕЙНЕР СИСТЕМЫ СИГНАЛОВ И ГРАФИКИ (oscilloscope.css)
-   ========================================================================== */
-
-/* Линия-призрак во время перетаскивания */
-.resize-ghost {
-    position: fixed;
-    top: 0;
-    bottom: 0;
-    width: 2px;
-    background: #00ff00;
-    z-index: 9999;
-    pointer-events: none;
-    display: none;
-}
-
 #osc-container {
     display: flex;
-    flex-direction: column;
-    flex: 1;
-    background: #000;
-    min-height: 200px;
-}
-
-#osc-container.hidden {
-    display: none !important;
-}
-
-.osc-internal-container {
-    display: flex;
-    flex-direction: column;
     flex: 1;
     height: 100%;
     width: 100%;
-    position: relative;
-}
-
-.osc-content-area {
-    display: flex;
-    flex-direction: row;
-    flex: 1;
-    width: 100%;
     overflow: hidden;
-    background: #111;
+    background: #000;
 }
 
-/* Обертка таблицы. flex-basis задается через JS */
+/* Обертка таблицы */
 .osc-table-wrapper {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
+    flex: 0 0 460px; /* ЭТО значение мы теперь будем менять мышкой */
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
     background: #0a0a0a;
-    flex: 0 0 460px;
-    min-width: 50px;
 }
 
-/* ВАЖНО: Убрали width: 100%, чтобы колонки не прыгали */
+/* НОВЫЙ ЭЛЕМЕНТ: Главный разделитель между таблицей и графиками */
+.osc-main-splitter {
+    width: 4px;
+    background: #333;
+    cursor: col-resize;
+    flex: 0 0 auto;
+    z-index: 100;
+}
+
+.osc-main-splitter:hover, .osc-main-splitter.active {
+    background: #0055ff;
+}
+
 .osc-data-grid {
-    border-collapse: collapse;
     table-layout: fixed;
-    border-spacing: 0;
+    width: 100%;
+    border-collapse: collapse;
 }
 
 .osc-data-grid th {
     background: #222;
     color: #aaa;
-    font-weight: bold;
     padding: 6px 8px;
     font-size: 12px;
-    text-align: center;
     border-right: 1px solid #333;
     border-bottom: 2px solid #333;
-    box-sizing: border-box;
-    height: 31px;
     position: relative;
-    white-space: nowrap;
-    overflow: hidden;
+    height: 31px;
 }
 
-.col-resizer {
+/* Внутренние ресайзеры колонок */
+.osc-table-resizer {
     position: absolute;
     right: 0;
     top: 0;
-    width: 6px;
+    width: 8px;
     height: 100%;
     cursor: col-resize;
-    z-index: 1;
-}
-.col-resizer:hover {
-    background: #555;
-}
-
-.osc-data-grid tr {
-    height: 20px;
-}
-
-.osc-data-grid td {
-    height: 20px;
-    padding: 0 8px;
-    font-size: 12px;
-    color: #fff;
-    border-right: 1px solid #222;
-    border-bottom: 1px solid #222;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    vertical-align: middle;
-}
-
-.osc-canvas-column {
-    display: flex;
-    flex-direction: column;
-    flex: 1; 
-    min-width: 50px;
-    background: #000;
-    overflow: hidden;
-}
-
-.osc-graph-header {
-    background: #222;
-    color: #aaa;
-    font-weight: bold;
-    padding: 6px 8px;
-    font-size: 12px;
-    text-align: center;
-    border-bottom: 2px solid #333;
-    height: 31px;
-    box-sizing: border-box;
-    line-height: 17px;
-}
-
-#osc-canvas-container {
-    flex: 1;
-    width: 100%;
-    height: 100%;
-    background: #000;
-}
-
-#osc-container canvas {
-    display: block;
-    width: 100% !important;
-    height: 100% !important;
-}
-
-.osc-resizer-split {
-    width: 6px;
-    cursor: col-resize;
-    background: #222;
     z-index: 10;
 }
-.osc-resizer-split:hover {
-    background: #555;
+
+.osc-table-resizer:hover, .osc-table-resizer.active {
+    background: rgba(0, 85, 255, 0.3);
+}
+
+/* Область графиков */
+.osc-canvas-column {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    background: #000;
+    position: relative;
+    overflow: hidden;
 }
