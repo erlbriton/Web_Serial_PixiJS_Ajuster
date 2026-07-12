@@ -1,0 +1,24 @@
+{
+  "name": "web_serial_pixijs_ajuster",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/erlbriton/Web_Serial_PixiJS_Ajuster.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/erlbriton/Web_Serial_PixiJS_Ajuster/issues"
+  },
+  "homepage": "https://github.com/erlbriton/Web_Serial_PixiJS_Ajuster#readme",
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vite": "^5.4.14"
+  }
+}
