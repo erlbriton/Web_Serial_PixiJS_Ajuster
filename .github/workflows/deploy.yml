@@ -1,13 +1,11 @@
 name: Deploy to GitHub Pages
 
-# Триггер: запускать workflow при каждом пуше в ветку main
+# Триггер: запускать workflow при каждом пуше в ветки main или Type_Script
 on:
   push:
     branches:
       - main
       - Type_Script
-
-  # Позволяет запускать этот workflow вручную из вкладки Actions на GitHub
   workflow_dispatch:
 
 # Устанавливаем права для работы с GitHub Pages
@@ -16,18 +14,17 @@ permissions:
   pages: write
   id-token: write
 
-# Управляем очередью развертывания (чтобы новые пуши корректно сменяли старые)
+# Управляем очередью развертывания
 concurrency:
   group: "pages"
   cancel-in-progress: true
 
 jobs:
   deploy:
-    runs-on: ubuntu-latest  # Удалите все строки environment и url
+    runs-on: ubuntu-latest
     steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -35,8 +32,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          # Указываем, какую папку загружать. 
-          # Так как index.html лежит в корне, ставим точку "."
+          # Указываем папку для загрузки
           path: '.'
 
       - name: Deploy to GitHub Pages
