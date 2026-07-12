@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - Type_Script
 
   # Позволяет запускать этот workflow вручную из вкладки Actions на GitHub
   workflow_dispatch:
