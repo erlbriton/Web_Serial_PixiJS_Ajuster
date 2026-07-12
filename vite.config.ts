@@ -1,14 +1,20 @@
 import { defineConfig } from 'vite';
 
 export default defineConfig({
-  // Указываем, что корень проекта — это текущая папка
+  // Указываем базовый путь для корректной работы путей на GitHub Pages
+  base: './', 
+  
+  // Корень проекта
   root: './',
+  
   server: {
-    // Явно разрешаем Vite обрабатывать файлы
     port: 5173,
     strictPort: true,
   },
+  
   build: {
-    target: 'esnext'
+    target: 'esnext',
+    // Выходная папка по умолчанию — 'dist'
+    outDir: 'dist',
   }
 });
