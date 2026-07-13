@@ -1,5 +1,3 @@
-// js/ui/ui-resizers.ts
-
 document.addEventListener('DOMContentLoaded', () => {
     const sidebar = document.querySelector('.left-sidebar-column') as HTMLElement | null;
     const sidebarResizer = document.querySelector('.sidebar-resizer') as HTMLElement | null;
@@ -63,7 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
             toggleOscBtn.removeEventListener('mousemove', showTooltip as EventListener);
         });
     }
-  
+
     // --- РЕСАЙЗЕРЫ ---
     if (sidebarResizer && sidebar && wrapper && oscContainer) {
         sidebarResizer.addEventListener('mousedown', (e: Event) => {
@@ -98,15 +96,18 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- ИНИЦИАЛИЗАЦИЯ ТАБЛИЦЫ ---
     const table = document.querySelector('.modbus-grid') as HTMLTableElement | null;
-    const subHeaders = document.querySelectorAll('.modbus-grid thead tr:last-child th');
-    const cols = document.querySelectorAll('.modbus-grid colgroup col');
+    const mainHeaders = document.querySelectorAll('.modbus-grid thead tr:first-child th') as NodeListOf<HTMLTableHeaderCellElement>;
+    const subHeaders = document.querySelectorAll('.modbus-grid thead tr:last-child th') as NodeListOf<HTMLTableHeaderCellElement>;
 
     if (table) {
+        // Ресайзеры ячеек
         const internalIndices = [0, 1, 2, 4, 6]; 
         internalIndices.forEach(idx => {
-            const th = subHeaders[idx] as HTMLElement;
+            const th = subHeaders[idx];
             if (!th) return;
+            
             const resizer = document.createElement('div');
             resizer.className = 'table-resizer internal-resizer';
             th.appendChild(resizer);
@@ -116,6 +117,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 mouseDownEvent.preventDefault();
                 resizer.classList.add('active');
                 document.body.classList.add('is-resizing');
+                
+                // Ищем актуальные колонки В МОМЕНТ клика
+                const currentCols = table.querySelectorAll('colgroup col') as NodeListOf<HTMLTableColElement>;
                 
                 const startX = mouseDownEvent.clientX;
                 const totalTableWidth = table.offsetWidth;
@@ -130,8 +134,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     const pctLeft = ((startWidthLeft + delta) / totalTableWidth) * 100;
                     const pctRight = ((startWidthRight - delta) / totalTableWidth) * 100;
                     
-                    (cols[idx] as HTMLElement).style.width = `${pctLeft}%`;
-                    (cols[idx + 1] as HTMLElement).style.width = `${pctRight}%`;
+                    if (currentCols[idx]) currentCols[idx].style.width = `${pctLeft}%`;
+                    if (currentCols[idx + 1]) currentCols[idx + 1].style.width = `${pctRight}%`;
                 };
                 
                 const stopDragInternal = () => {
@@ -140,12 +144,71 @@ document.addEventListener('DOMContentLoaded', () => {
                     window.removeEventListener('mousemove', doDragInternal);
                     window.removeEventListener('mouseup', stopDragInternal);
                 };
+                
                 window.addEventListener('mousemove', doDragInternal);
                 window.addEventListener('mouseup', stopDragInternal);
             });
         });
-        
-        // Аналогично типизируйте остальную логику resizer'ов групп...
+
+        // Ресайзеры групп
+        mainHeaders.forEach((th, groupIndex) => {
+            if (groupIndex === mainHeaders.length - 1) return; 
+            
+            const resizer = document.createElement('div');
+            resizer.className = 'table-resizer group-resizer';
+            th.appendChild(resizer);
+            
+            resizer.addEventListener('mousedown', (e: Event) => {
+                const mouseDownEvent = e as MouseEvent;
+                mouseDownEvent.preventDefault();
+                resizer.classList.add('active');
+                document.body.classList.add('is-resizing');
+                
+                // Ищем актуальные колонки В МОМЕНТ клика
+                const currentCols = table.querySelectorAll('colgroup col') as NodeListOf<HTMLTableColElement>;
+                
+                const startX = mouseDownEvent.clientX;
+                const totalTableWidth = table.offsetWidth; 
+                
+                const leftGroupCols: number[] = groupIndex === 0 ? [0, 1, 2, 3] : [4, 5];
+                const rightGroupCols: number[] = groupIndex === 0 ? [4, 5] : [6, 7];
+                
+                const startWidthsLeft = leftGroupCols.map(idx => subHeaders[idx].getBoundingClientRect().width);
+                const startWidthsRight = rightGroupCols.map(idx => subHeaders[idx].getBoundingClientRect().width);
+                
+                const totalStartWidthLeft = startWidthsLeft.reduce((sum, w) => sum + w, 0);
+                const totalStartWidthRight = startWidthsRight.reduce((sum, w) => sum + w, 0);
+                
+                if (totalStartWidthLeft === 0 || totalStartWidthRight === 0) return;
+                
+                const doDragGroup = (moveEvent: MouseEvent) => {
+                    let delta = moveEvent.clientX - startX;
+                    if (totalStartWidthLeft + delta < 90) delta = 90 - totalStartWidthLeft;
+                    if (totalStartWidthRight - delta < 90) delta = totalStartWidthRight - 90;
+                    
+                    const factorLeft = (totalStartWidthLeft + delta) / totalStartWidthLeft;
+                    const factorRight = (totalStartWidthRight - delta) / totalStartWidthRight;
+                    
+                    leftGroupCols.forEach((colIdx, i) => {
+                        if (currentCols[colIdx]) currentCols[colIdx].style.width = `${((startWidthsLeft[i] * factorLeft) / totalTableWidth) * 100}%`;
+                    });
+                    rightGroupCols.forEach((colIdx, i) => {
+                        if (currentCols[colIdx]) currentCols[colIdx].style.width = `${((startWidthsRight[i] * factorRight) / totalTableWidth) * 100}%`;
+                    });
+                };
+                
+                const stopDragGroup = () => {
+                    resizer.classList.remove('active');
+                    document.body.classList.remove('is-resizing');
+                    window.removeEventListener('mousemove', doDragGroup);
+                    window.removeEventListener('mouseup', stopDragGroup);
+                };
+                
+                window.addEventListener('mousemove', doDragGroup);
+                window.addEventListener('mouseup', stopDragGroup);
+            });
+        });
     }
+
     enforceSidebarLimits();
 });
