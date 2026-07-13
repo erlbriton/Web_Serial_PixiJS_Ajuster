@@ -1,5 +1,3 @@
-// js/ini-manager/iniParser.ts
-
 interface Parameter {
     name: string;
     description: string;
@@ -21,6 +19,14 @@ export class IniParser {
     constructor() {
         this.parsedData = {};
         this.multiplierCache = {};
+        this.varsDictionary = {};
+    }
+
+    // Новый метод для прямой загрузки уже готового конфига
+    setData(data: Record<string, Record<string, any>>): void {
+        this.parsedData = data;
+        // Опционально можно сбросить кэши, так как данные уже "готовы"
+        this.multiplierCache = {}; 
         this.varsDictionary = {};
     }
 

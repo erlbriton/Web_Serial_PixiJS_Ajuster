@@ -1,9 +1,10 @@
-// js/ini-manager/tree-ui.ts
 import { populateDeviceForm } from '../ui.js';
 import { renderModbusTable } from '../tree.js';
 import { deviceRegistry, setCurrentDeviceConfig, hexToFloat32, float32ToHex, DeviceConfig, RegistryItem } from './tree-core.js';
+import { refreshOscilloscope } from '../file-loader.js';
+import { IniParser } from '../iniParser.js';
 
-export function renderDeviceTree(): void {
+export function renderDeviceTree(appState: any, view: any, buffers: any[]): void {
     const container = document.querySelector('.sidebar-tree-container');
     if (!container) return;
     container.innerHTML = ''; 
@@ -30,6 +31,17 @@ export function renderDeviceTree(): void {
                 liElement.classList.add('is-selected');
                 
                 setCurrentDeviceConfig(device.fullConfig);
+                
+                // Исправлено: создаем пустой парсер и загружаем данные
+                const newParser = new IniParser();
+                newParser.setData(device.fullConfig);
+                
+                // Обновляем appState
+                appState.parser = newParser;
+                
+                // Обновляем осциллограф
+                refreshOscilloscope(newParser, view, buffers); 
+
                 if (device.fullConfig['DEVICE']) {
                     populateDeviceForm(device.fullConfig['DEVICE']);
                 }

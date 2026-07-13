@@ -7,6 +7,7 @@ import { renderModbusTable } from './tree.js';
 import { IniParser } from './iniParser.js';
 import { RingBuffer } from './oscilloscope/ringBuffer.js';
 
+
 // Интерфейс для appState, чтобы TS знал, что внутри
 interface AppState {
     parser: any; 
@@ -43,8 +44,8 @@ export function setupFileHandling(fileInput: HTMLInputElement, appState: AppStat
                         buffers.splice(0, buffers.length, ...newBuffers);
 
                         const isAdded = addDeviceToRegistry(config);
-                        if (isAdded) renderDeviceTree();
-                        
+                        if (isAdded) renderDeviceTree(appState, view, buffers);
+
                         populateDeviceForm(config['DEVICE']);
                         renderModbusTable(config);
                     }
@@ -60,4 +61,19 @@ export function setupFileHandling(fileInput: HTMLInputElement, appState: AppStat
 
         fileInput.value = '';
     });
+}
+
+export function refreshOscilloscope(parser: any, view: any, buffers: any[]) {
+    // Добавляем отладку
+    const ramParams = parser.getSectionParameterKeys('RAM');
+    console.log("DEBUG: Параметры RAM:", ramParams); 
+    console.log("DEBUG: Количество параметров RAM:", ramParams ? ramParams.length : 0);
+
+    const rowCount = ramParams.length > 0 ? ramParams.length : 1;
+    
+    view.updateRows(rowCount);
+    
+    // Пересоздаем буферы
+    const newBuffers = Array.from({ length: rowCount }, () => new RingBuffer(2500));
+    buffers.splice(0, buffers.length, ...newBuffers);
 }
