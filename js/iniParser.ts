@@ -119,4 +119,8 @@ export class IniParser {
             value: dataArray[9] || dataArray[8] || ""
         };
     }
+    getSectionParameterKeys(section: string): string[] {
+        const data = this.parsedData[section.toUpperCase()];
+        return data ? Object.keys(data) : [];
+    }
 }

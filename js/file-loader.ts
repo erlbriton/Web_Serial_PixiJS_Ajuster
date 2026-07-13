@@ -5,6 +5,7 @@ import { renderDeviceTree } from './ini-manager/tree-ui.js';
 import { renderModbusTable } from './tree.js';
 // Если у вас нет типов для IniParser, он будет any, это нормально
 import { IniParser } from './iniParser.js';
+import { RingBuffer } from './oscilloscope/ringBuffer.js';
 
 // Интерфейс для appState, чтобы TS знал, что внутри
 interface AppState {
@@ -12,7 +13,7 @@ interface AppState {
     currentDeviceConfig: any;
 }
 
-export function setupFileHandling(fileInput: HTMLInputElement, appState: AppState) {
+export function setupFileHandling(fileInput: HTMLInputElement, appState: AppState, view: any, buffers: any[]) {
     fileInput.addEventListener('change', (event: Event) => {
         const target = event.target as HTMLInputElement;
         if (!target.files) return;
@@ -25,12 +26,21 @@ export function setupFileHandling(fileInput: HTMLInputElement, appState: AppStat
 
             reader.onload = (e: ProgressEvent<FileReader>) => {
                 try {
-                    // Явно говорим, что e.target.result - это строка
                     const content = e.target?.result as string;
                     const config = appState.parser.parse(content);
 
                     if (config['DEVICE']) {
                         appState.currentDeviceConfig = config;
+
+                        // ОБНОВЛЕНИЕ ОСЦИЛЛОГРАФА
+                        const ramParams = appState.parser.getSectionParameterKeys('RAM');
+                        const rowCount = ramParams.length > 0 ? ramParams.length : 1;
+                        
+                        view.updateRows(rowCount);
+                        
+                        // Заменяем содержимое массива buffers на новые
+                        const newBuffers = Array.from({ length: rowCount }, () => new RingBuffer(2500));
+                        buffers.splice(0, buffers.length, ...newBuffers);
 
                         const isAdded = addDeviceToRegistry(config);
                         if (isAdded) renderDeviceTree();

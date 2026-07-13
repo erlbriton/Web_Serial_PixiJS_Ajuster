@@ -3,6 +3,7 @@ import { IniParser } from './iniParser.js';
 import { RingBuffer } from './oscilloscope/ringBuffer.js';
 import { SerialConnection } from './serial/serial.js';
 import { initUI } from './ui/uiManager.js';
+import { initLayout } from './ui/layout'; // Пробуем этот путь
 import { createOscilloscopeView } from './views/oscilloscopeView.js';
 import { PixiOscilloscope } from './oscilloscope/pixiOscilloscope.js';
 import { ModbusParser } from './serial/modbus.js';
@@ -51,26 +52,33 @@ document.addEventListener('DOMContentLoaded', () => {
             oscContainer.appendChild(createOscilloscopeView());
         }
 
-        const view = new PixiOscilloscope('osc-canvas-container');
-        const buffers: RingBuffer[] = Array.from({ length: 70 }, () => new RingBuffer(2500));
+        // Получаем количество параметров из секции RAM
+        const ramParams = iniParser.getSectionParameterKeys('RAM');
+        const rowCount = ramParams.length > 0 ? ramParams.length : 1; // Минимум 1 график, если данных пока нет
+        
+console.log(`DEBUG: Инициализация осциллографа. Параметров в RAM: ${ramParams.length}, создаем графиков: ${rowCount}`);
+
+        const view = new PixiOscilloscope('osc-canvas-container', rowCount);
+        const buffers: RingBuffer[] = Array.from({ length: rowCount }, () => new RingBuffer(2500));
         
         window.oscView = view;
         const serial = new SerialConnection();
         const parser = new ModbusParser();
 
         initUI({
-            serial, 
-            appState, 
-            parser, 
-            view, 
-            buffers,
-            setupFileHandling, 
-            updateComInterfaceName, 
-            executeDeviceIdentification, 
-            readLoop, 
-            showIdModal, 
-            updateDeviceRegisters
-        });
+    serial, 
+    appState, 
+    parser, 
+    view, 
+    buffers,
+    setupFileHandling, 
+    updateComInterfaceName, 
+    executeDeviceIdentification, 
+    readLoop, 
+    showIdModal, 
+    updateDeviceRegisters
+});
+initLayout();
 
         console.log("Приложение запущено. Осциллограф скрыт до клика.");
     } catch (error) {

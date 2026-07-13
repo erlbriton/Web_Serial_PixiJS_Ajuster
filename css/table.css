@@ -143,3 +143,29 @@
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+.table-resizer {
+    position: absolute;
+    top: 0;
+    right: 0;
+    width: 5px;        /* Ширина захвата */
+    height: 100%;       /* Растянуть на всю высоту заголовка */
+    cursor: col-resize; /* Меняет курсор на стрелочки */
+    z-index: 1000;      /* Чтобы был поверх всего */
+    background: transparent; /* Или red, чтобы увидеть их физически */
+}
+
+/* Обязательно для родителя, чтобы absolute позиционирование работало */
+th {
+    position: relative;
+}
+
+.sidebar-resizer {
+    width: 5px;
+    height: 100%;
+    position: absolute;
+    right: 0;
+    top: 0;
+    cursor: col-resize;
+    z-index: 1000;
+}

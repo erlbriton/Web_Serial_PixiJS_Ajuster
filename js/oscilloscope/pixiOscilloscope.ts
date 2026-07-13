@@ -1,5 +1,3 @@
-// js/oscilloscope/pixiOscilloscope.ts
-
 interface RingBuffer {
     getLinearData: () => number[];
 }
@@ -8,14 +6,16 @@ export class PixiOscilloscope {
     private width: number;
     private height: number;
     private rowHeight: number = 20;
-    private totalRows: number = 70;
+    private totalRows: number;
     private scrollY: number = 0;
     private brightColors: number[];
     private app: any;
     private stageContainer: any;
     private graphicsList: any[];
 
-    constructor(containerId: string) {
+    constructor(containerId: string, rowCount: number) {
+        this.totalRows = rowCount;
+        
         const container = document.getElementById(containerId);
         if (!container) {
             throw new Error(`Контейнер с ID "${containerId}" не найден!`);
@@ -150,4 +150,26 @@ export class PixiOscilloscope {
             });
         }
     }
+
+updateRows(rowCount: number): void {
+        // Очищаем старые графические объекты
+        this.graphicsList.forEach(g => this.stageContainer.removeChild(g));
+        this.graphicsList = [];
+        this.totalRows = rowCount;
+
+        // Создаем новые
+        for (let i = 0; i < this.totalRows; i++) {
+            // @ts-ignore
+            const g = new PIXI.Graphics();
+            this.stageContainer.addChild(g);
+            this.graphicsList.push(g);
+        }
+        
+        // Сбрасываем прокрутку, если она стала неактуальной
+        this.scrollY = 0;
+        this.stageContainer.y = 0;
+        
+        console.log(`DEBUG: Осциллограф обновлен. Графиков теперь: ${this.totalRows}`);
+    }
+
 }

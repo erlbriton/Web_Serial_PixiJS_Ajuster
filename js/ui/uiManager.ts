@@ -7,7 +7,7 @@ interface UIDependencies {
     parser: any;
     view: any;
     buffers: any;
-    setupFileHandling: (picker: HTMLInputElement, state: any) => void;
+    setupFileHandling: (picker: HTMLInputElement, state: any, view: any, buffers: any[]) => void;
     setupFolderHandling?: (picker: HTMLInputElement) => void; // Сделали опциональным, т.к. в main.ts его нет
     updateComInterfaceName: (serial: any, select: HTMLSelectElement | null) => string | undefined; // Исправлено
     executeDeviceIdentification: (serial: any, select: HTMLSelectElement | null, state: any) => Promise<void>;
@@ -38,7 +38,7 @@ export function initUI(deps: UIDependencies): void {
     const menuOpenFolder = document.getElementById('menuOpenFolder') as HTMLElement | null;
 
     // 3. Инициализация логики файлов
-    if (filePicker) setupFileHandling(filePicker, appState);
+    if (filePicker) setupFileHandling(filePicker, appState, view, buffers);
     if (folderPicker && typeof setupFolderHandling === 'function') setupFolderHandling(folderPicker);
 
     // 4. События кнопок
