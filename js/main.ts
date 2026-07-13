@@ -23,14 +23,25 @@ declare global {
     }
 }
 
+// Создаем явный интерфейс для AppState, чтобы избежать костыля "null as any"
+export interface AppState {
+    isIdentifying: boolean;
+    isPolling: boolean;
+    isRefreshing: boolean;
+    slaveAddress: number;
+    parser: IniParser;
+    currentDeviceConfig: any | null;
+}
+
 const iniParser = new IniParser();
-const appState = { 
+
+const appState: AppState = { 
     isIdentifying: false, 
     isPolling: false, 
     isRefreshing: false, 
     slaveAddress: 0x01, 
     parser: iniParser,
-    currentDeviceConfig: null as any // Добавили, чтобы не ругался при записи
+    currentDeviceConfig: null 
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -62,7 +73,9 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         console.log("Приложение запущено. Осциллограф скрыт до клика.");
-    } catch (error: any) {
-        console.error("Критическая ошибка:", error.message);
+    } catch (error) {
+        // Безопасная обработка ошибки неизвестного типа (unknown)
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.error("Критическая ошибка:", errorMessage);
     }
 });

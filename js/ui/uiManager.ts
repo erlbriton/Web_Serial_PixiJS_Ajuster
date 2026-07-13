@@ -8,12 +8,12 @@ interface UIDependencies {
     view: any;
     buffers: any;
     setupFileHandling: (picker: HTMLInputElement, state: any) => void;
-    setupFolderHandling: (picker: HTMLInputElement) => void;
-    updateComInterfaceName: (serial: any, select: HTMLSelectElement | null) => string;
+    setupFolderHandling?: (picker: HTMLInputElement) => void; // Сделали опциональным, т.к. в main.ts его нет
+    updateComInterfaceName: (serial: any, select: HTMLSelectElement | null) => string | undefined; // Исправлено
     executeDeviceIdentification: (serial: any, select: HTMLSelectElement | null, state: any) => Promise<void>;
     readLoop: (serial: any, parser: any, view: any, buffers: any, state: any) => void;
     showIdModal: (msg: string) => void;
-    updateDeviceRegisters: (serial: any, addr: number, state: any) => Promise<void>;
+    updateDeviceRegisters: (serial: any, addr: number, state: any) => Promise<boolean>; // Исправлено
 }
 
 export function initUI(deps: UIDependencies): void {
@@ -47,7 +47,7 @@ export function initUI(deps: UIDependencies): void {
             if (serial.isConnected) { showIdModal("Порт уже открыт!"); return; }
             try {
                 await serial.connect(115200);
-                const chipName = updateComInterfaceName(serial, comSelect);
+                const chipName = updateComInterfaceName(serial, comSelect) || "Неизвестное устройство"; // Обрабатываем undefined
                 console.log(`Успешно подключено к: ${chipName}`);
             } catch (err: any) { showIdModal("Ошибка: " + err.message); }
         });
@@ -61,34 +61,37 @@ export function initUI(deps: UIDependencies): void {
     }
 
     if (refreshBtn) {
-        refreshBtn.addEventListener("click", async () => {
-            if (!serial?.isConnected) { showIdModal("Устройство не подключено!"); return; }
-            if (appState.isRefreshing) return;
-            
-            appState.isRefreshing = true;
-            refreshBtn.disabled = true;
-            
-            try {
-                // Теперь мы вызываем специфическую функцию для полного обновления всех секций
-                // Предполагается, что в updateDeviceRegisters логика должна быть изменена, 
-                // чтобы перебирать Flash, CD и RAM
-                await updateDeviceRegisters(serial, appState.slaveAddress, appState);
-                
-                // При клике на "Обновить" мы просто обновляем данные, 
-                // но не запускаем цикл polling'а, если он не был активен
-                console.log("Полное обновление всех секций завершено.");
-            } catch (err) {
-                console.error("Ошибка при обновлении:", err);
-            } finally {
-                appState.isRefreshing = false;
-                refreshBtn.disabled = false;
-                
-                // Убираем вызов readLoop отсюда, чтобы "Обновить" не запускало 
-                // бесконечный опрос RAM
-                console.log("DEBUG: Обновление завершено, цикл чтения не запущен.");
+    refreshBtn.addEventListener("click", async () => {
+        if (!serial?.isConnected) { showIdModal("Устройство не подключено!"); return; }
+        if (appState.isRefreshing) { console.log("Обновление уже идет, игнорирую клик"); return; }
+        
+        console.log("--- Клик по Обновить ---");
+        appState.isRefreshing = true;
+        refreshBtn.disabled = true;
+        
+        // Создаем переменную здесь, чтобы она была видна в finally
+        let wasPolling = false;
+
+        try {
+            wasPolling = await updateDeviceRegisters(serial, appState.slaveAddress, appState);
+            console.log("Обновление завершено. Был ли опрос активен:", wasPolling);
+        } catch (err) {
+            console.error("Критическая ошибка при обновлении:", err);
+        } finally {
+            // Сначала сбрасываем все флаги состояния
+            appState.isRefreshing = false;
+            refreshBtn.disabled = false;
+            console.log("--- Кнопка снова активна ---");
+
+            // И только теперь, когда флаг isRefreshing гарантированно false, запускаем опрос
+            if (wasPolling) {
+                console.log("Запускаю readLoop после обновления...");
+                appState.isPolling = true;
+                readLoop(serial, parser, view, buffers, appState);
             }
-        });
-    }
+        }
+    });
+}
     
     if (toggleOscBtn) {
         toggleOscBtn.addEventListener('click', () => {

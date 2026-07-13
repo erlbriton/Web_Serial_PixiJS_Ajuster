@@ -136,13 +136,17 @@ export async function executeDeviceIdentification(serial: any, comSelect: HTMLSe
 }
 
 export async function readLoop(serial: any, parser: any, view: any, buffers: any[], stateObj: any): Promise<void> {
-    const deviceConfig = stateObj.currentDeviceConfig;
+    // ИСПРАВЛЕНИЕ: здесь используем stateObj
+    console.log("[readLoop] Функция вызвана. stateObj.isPolling:", stateObj.isPolling);
+    
+    const deviceConfig = stateObj.currentDeviceConfig; // Используем stateObj
     if (!deviceConfig?.['RAM']) return;
 
     const { start, count } = calculateRamRange(deviceConfig['RAM']);
     const loopId = ++currentLoopId; 
     serialManager.init(serial);
 
+    // ИСПРАВЛЕНИЕ: используем stateObj вместо appState во всех проверках
     while (serial.isConnected && stateObj.isPolling && !stateObj.isRefreshing) {
         if (loopId !== currentLoopId) return; 
 
@@ -157,6 +161,8 @@ export async function readLoop(serial: any, parser: any, view: any, buffers: any
 
         try {
             const reply = await serialManager.executeTransaction(finalPacket, (buf) => buf.length >= 3 + (count * 2) + 2, 100);
+            
+            // ИСПРАВЛЕНИЕ: используем stateObj
             if (loopId !== currentLoopId || !stateObj.isPolling || stateObj.isRefreshing) break; 
             
             if (reply?.length > 0) {
@@ -171,7 +177,6 @@ export async function readLoop(serial: any, parser: any, view: any, buffers: any
         await new Promise(res => setTimeout(res, 20));
     }
 }
-
 function handleValidPacket(packetData: number[], view: any, buffers: any[]): void {
     for (let i = 0; i < 70; i++) {
         buffers[i]?.push(packetData[i] || 0);
