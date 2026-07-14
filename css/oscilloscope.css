@@ -1,6 +1,6 @@
-#osc-container {
+.osc-container {
     display: flex;
-    flex-direction: column; /* Теперь это колонка: сверху тулбар, снизу рабочая область */
+    flex-direction: column;
     flex: 1;
     height: 100%;
     width: 100%;
@@ -9,13 +9,13 @@
 }
 
 /* =========================================
-   ПАНЕЛЬ ИНСТРУМЕНТОВ И КНОПКИ (Ретро 3D Темная Тема)
+   ПАНЕЛЬ ИНСТРУМЕНТОВ
    ========================================= */
 .osc-toolbar {
     display: flex;
     flex: 0 0 auto;
     padding: 4px 6px;
-    background: #333333; /* Базовый темный фон панели */
+    background: #333333;
     border-bottom: 2px solid #1a1a1a;
     gap: 4px;
 }
@@ -23,13 +23,12 @@
 .osc-btn {
     width: 60px;
     height: 30px;
-    background: #3a3a3a; /* Цвет самой кнопки */
-    /* Имитация 3D-выпуклости */
+    background: #3a3a3a;
     border-top: 2px solid #5d5d5d;
     border-left: 2px solid #5d5d5d;
     border-bottom: 2px solid #151515;
     border-right: 2px solid #151515;
-    border-radius: 0; /* Классические кнопки строго прямоугольные */
+    border-radius: 0;
     color: #cccccc;
     display: flex;
     align-items: center;
@@ -45,7 +44,6 @@
     color: #ffffff;
 }
 
-/* Эффект вдавленности при нажатии */
 .osc-btn:active {
     background: #333333;
     border-top: 2px solid #151515;
@@ -54,7 +52,6 @@
     border-right: 2px solid #5d5d5d;
 }
 
-/* Сдвиг иконки при нажатии для реалистичности */
 .osc-btn:active svg {
     transform: translate(1px, 1px);
 }
@@ -65,7 +62,7 @@
 }
 
 /* =========================================
-   ОСНОВНАЯ РАБОЧАЯ ОБЛАСТЬ (Таблица + Графики)
+   ОСНОВНАЯ ОБЛАСТЬ
    ========================================= */
 .osc-main-area {
     display: flex;
@@ -75,7 +72,6 @@
     overflow: hidden;
 }
 
-/* Обертка таблицы */
 .osc-table-wrapper {
     flex: 0 0 460px;
     height: 100%;
@@ -84,7 +80,6 @@
     background: #0a0a0a;
 }
 
-/* Главный разделитель между таблицей и графиками */
 .osc-main-splitter {
     width: 4px;
     background: #333;
@@ -103,18 +98,24 @@
     border-collapse: collapse;
 }
 
-.osc-data-grid th {
-    background: #222;
-    color: #aaa;
-    padding: 6px 8px;
-    font-size: 12px;
+.col-name { width: 40%; }
+.col-hex { width: 20%; }
+.col-phys { width: 20%; }
+.col-unit { width: 20%; }
+
+.header-cell {
+    height: 20px;
+    line-height: 20px;
+    padding: 0;
+    vertical-align: middle;
+    background-color: #818181;
+    color: #e9e6e6;
     border-right: 1px solid #333;
     border-bottom: 2px solid #333;
     position: relative;
-    height: 31px;
+    font-size: 12px;
 }
 
-/* Внутренние ресайзеры колонок */
 .osc-table-resizer {
     position: absolute;
     right: 0;
@@ -131,10 +132,30 @@
 
 /* Область графиков */
 .osc-canvas-column {
+    display: flex;
+    flex-direction: column;
     flex: 1;
-    min-width: 0;
     height: 100%;
+    min-width: 0;
     background: #000;
     position: relative;
     overflow: hidden;
+}
+
+.osc-canvas-header {
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #818181;
+    color: #e9e6e6;
+    border-bottom: 1px solid #444;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+#osc-canvas-container {
+    flex: 1;
+    min-height: 0;
+    position: relative;
 }
