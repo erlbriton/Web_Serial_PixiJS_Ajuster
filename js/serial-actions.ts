@@ -4,6 +4,7 @@ import { showIdModal, updateIdBanner, closeIdModal } from './ui.js';
 import { calculateRamRange } from './oscilloscope/ringBuffer.js';
 
 let currentLoopId = 0; 
+let lastUiUpdateTime = 0; // Время последнего обновления текстовых полей в UI
 
 class SerialManager {
     private serial: any = null;
@@ -135,6 +136,17 @@ export async function executeDeviceIdentification(serial: any, comSelect: HTMLSe
     }
 }
 
+interface RegMapEntry {
+    regAddress: number;
+    bitOffset: number;
+    type: string;
+    name: string;
+    unit: string;
+    scale: number;
+    decimals: number;
+    offset: number;
+}
+
 export async function readLoop(serial: any, parser: any, view: any, buffers: any[], stateObj: any): Promise<void> {
     console.log("[readLoop] Функция вызвана. stateObj.isPolling:", stateObj.isPolling);
     
@@ -148,23 +160,87 @@ export async function readLoop(serial: any, parser: any, view: any, buffers: any
     const loopId = ++currentLoopId; 
     serialManager.init(serial);
 
-    // Строим точную карту параметров с учётом смещения индексов и HEX-кодирования адресов
-    const regMap = keys.map(key => {
+    if (view && typeof view.setRowTypes === 'function') {
+        const types = keys.map(key => ramSection[key] ? ramSection[key][2] : 'TWORD');
+        view.setRowTypes(types);
+    }
+
+    // 1. Однократное заполнение статических колонок Name и Unit главной таблицы параметров
+    keys.forEach((key, i) => {
+        const parts = ramSection[key];
+        if (parts) {
+            const type = parts[2];
+            const name = parts[1] || parts[0] || '';
+            const unit = type === 'TBit' ? '—' : (parts[5] || '—');
+
+            const nameEl = document.getElementById(`param-name-${i}`);
+            if (nameEl) nameEl.textContent = name;
+
+            const unitEl = document.getElementById(`param-unit-${i}`);
+            if (unitEl) unitEl.textContent = unit;
+        }
+    });
+
+    // 2. Автоматическая генерация и наполнение строк в левой панели осциллографа (.osc-data-grid)
+    const oscTbody = document.querySelector('.osc-data-grid tbody');
+    if (oscTbody) {
+        let oscHtml = '';
+        keys.forEach((key, i) => {
+            const parts = ramSection[key];
+            if (parts) {
+                const type = parts[2];
+                const name = parts[1] || parts[0] || '';
+                const unit = type === 'TBit' ? '—' : (parts[5] || '—');
+                const displayUnit = (type === 'TBit') ? '.' : (unit === '*' ? '—' : unit);
+
+                oscHtml += `
+                    <tr>
+                        <td id="osc-name-${i}" class="param-name" title="${name}">${name}</td>
+                        <td id="osc-hex-${i}" class="hex-val">—</td>
+                        <td id="osc-phys-${i}">—</td>
+                        <td id="osc-unit-${i}">${displayUnit}</td>
+                    </tr>
+                `;
+            }
+        });
+        oscTbody.innerHTML = oscHtml;
+    }
+
+    // 3. Строим точную карту параметров с кэшированием всех метаданных
+    const regMap: (RegMapEntry | null)[] = keys.map(key => {
         if (key && ramSection[key]) {
             const parts = ramSection[key];
-            const type = parts[2];     // Тип данных всегда на 2-й позиции ('TBit', 'TWord'...)
-            
-            // Если TBit, строка регистра (например, r0000.0) на 5-й позиции.
-            // Для остальных типов (TWORD, TInteger, TFloat и др.) регистр на 4-й позиции!
+            const type = parts[2];     
             const regStr = type === 'TBit' ? parts[5] : parts[4];
             
             if (regStr) {
-                // Парсим шестнадцатеричные адреса регистров и маски бит (0-9, A-F)
                 const match = regStr.trim().match(/^r([0-9a-fA-F]+)(?:\.([0-9a-fA-F]+))?$/i);
                 if (match) {
-                    const regAddress = parseInt(match[1], 16); // Парсим строго как HEX (16)
+                    const regAddress = parseInt(match[1], 16); 
                     const bitOffset = match[2] !== undefined ? parseInt(match[2], 16) : 0;
-                    return { regAddress, bitOffset, type };
+                    
+                    const name = parts[1] || parts[0] || '';
+                    const unit = type === 'TBit' ? '—' : (parts[5] || '—');
+
+                    let scale = 1;
+                    if (type !== 'TBit' && parts[6]) {
+                        const parsedScale = parseFloat(parts[6].replace(',', '.'));
+                        if (!isNaN(parsedScale)) scale = parsedScale;
+                    }
+
+                    let decimals = 0;
+                    if (type !== 'TBit' && parts[7]) {
+                        const parsedDecimals = parseInt(parts[7], 10);
+                        if (!isNaN(parsedDecimals)) decimals = parsedDecimals;
+                    }
+
+                    let offset = 0;
+                    if (type !== 'TBit' && parts[8]) {
+                        const parsedOffset = parseFloat(parts[8].replace(',', '.'));
+                        if (!isNaN(parsedOffset)) offset = parsedOffset;
+                    }
+
+                    return { regAddress, bitOffset, type, name, unit, scale, decimals, offset };
                 }
             }
         }
@@ -203,16 +279,13 @@ export async function readLoop(serial: any, parser: any, view: any, buffers: any
     }
 }
 
-// Декодер для знаковых 16-битных целых чисел (TInteger)
 function decodeSignedInt16(val: number): number {
     return val >= 0x8000 ? val - 0x10000 : val;
 }
 
-// Декодер для 32-битных вещественных чисел (TFloat) из двух 16-битных Modbus-регистров
 function decodeFloat(reg1: number, reg2: number): number {
     const buffer = new ArrayBuffer(4);
     const view = new DataView(buffer);
-    // Порядок слов стандартный для Modbus: старшее слово вперед (ABCD)
     view.setUint16(0, reg1, false);
     view.setUint16(2, reg2, false);
     const floatVal = view.getFloat32(0, false);
@@ -223,9 +296,16 @@ function handleValidPacket(
     packetData: number[], 
     view: any, 
     buffers: any[], 
-    regMap: ({ regAddress: number; bitOffset: number; type: string } | null)[], 
+    regMap: (RegMapEntry | null)[], 
     startReg: number
 ): void {
+    // Вычисляем, пора ли обновить текстовые значения в DOM (частота 10 Гц = 100 мс)
+    const now = performance.now();
+    const shouldUpdateUiText = (now - lastUiUpdateTime) >= 100;
+    if (shouldUpdateUiText) {
+        lastUiUpdateTime = now;
+    }
+
     for (let i = 0; i < buffers.length; i++) {
         const mapEntry = regMap[i];
         
@@ -244,10 +324,44 @@ function handleValidPacket(
                 finalValue = decodeFloat(rawValue, nextWord);
             }
 
+            // Кольцевые буферы для графиков наполняются всегда (на полной скорости Modbus)
             buffers[i]?.push(finalValue);
+
+            // Текстовые данные обновляем строго по условию 10 Гц
+            if (shouldUpdateUiText) {
+                let physicalValue = finalValue;
+                let hexString = '';
+
+                if (mapEntry.type === 'TBit') {
+                    physicalValue = finalValue; 
+                    hexString = '0x' + finalValue.toString(16).toUpperCase();
+                } else {
+                    physicalValue = finalValue * mapEntry.scale + mapEntry.offset;
+                    hexString = '0x' + rawValue.toString(16).toUpperCase().padStart(4, '0');
+                }
+
+                const formattedPhysical = mapEntry.type === 'TBit' 
+                    ? physicalValue.toString() 
+                    : physicalValue.toFixed(mapEntry.decimals);
+
+                // А. Обновление полей в главной (правой) таблице параметров
+                const hexEl = document.getElementById(`param-hex-${i}`);
+                if (hexEl) hexEl.textContent = hexString;
+
+                const physEl = document.getElementById(`param-phys-${i}`);
+                if (physEl) physEl.textContent = formattedPhysical;
+
+                // Б. Обновление полей в левой панели легенды осциллографа
+                const oscHexEl = document.getElementById(`osc-hex-${i}`);
+                if (oscHexEl) oscHexEl.textContent = hexString;
+
+                const oscPhysEl = document.getElementById(`osc-phys-${i}`);
+                if (oscPhysEl) oscPhysEl.textContent = formattedPhysical;
+            }
         } else {
             buffers[i]?.push(0);
         }
     }
+    // Холст PixiJS перерисовывается на полной скорости для плавности линий
     view.draw(buffers); 
 }

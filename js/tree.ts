@@ -1,4 +1,4 @@
-// .ts
+// js/tree.ts
 import { currentDeviceConfig, parseRegisterAddress, hexToFloat32, float32ToHex } from './ini-manager/tree-core';
 import { clearAnyActiveCellEditors, initHexCellEditor, initPhysicalCellEditor } from './ini-manager/table-editor';
 import { updateRowValues } from './ini-manager/tree-ui';
@@ -17,7 +17,9 @@ export function renderModbusTable(config: Record<string, Record<string, string[]
     const sectionData = config[selectedMode];
     const keys = Object.keys(sectionData);
 
-    for (const key of keys) {
+    // Используем цикл с индексом i для связывания строк с буфером осциллографа и выводом данных
+    for (let i = 0; i < keys.length; i++) {
+        const key = keys[i];
         try {
             const parts = sectionData[key];
             const name = parts[0] || '';
@@ -66,15 +68,17 @@ export function renderModbusTable(config: Record<string, Record<string, string[]
             }
 
             tr.setAttribute('data-hex-index', hexIndex.toString());
+            
+            // Внедряем id="param-..." для динамического обновления данных в реальном времени
             tr.innerHTML = `
                 <td>${key}</td>
-                <td class="param-name" title="${name}">${name}</td>
+                <td id="param-name-${i}" class="param-name" title="${name}">${name}</td>
                 <td class="param-desc" title="${description}">${description}</td>
-                <td>—</td>
+                <td id="param-unit-${i}">—</td>
                 <td class="hex-val">—</td>
                 <td>—</td>
-                <td class="hex-val">—</td>
-                <td>—</td>
+                <td id="param-hex-${i}" class="hex-val">—</td>
+                <td id="param-phys-${i}">—</td>
             `;
 
             tr.querySelectorAll('td')[3].textContent = (dataType === 'TBit') ? '.' : (units === '*' ? '—' : units);
