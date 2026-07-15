@@ -1,4 +1,4 @@
-// js/device_updater.ts
+// js/serial-actions.ts
 import { identifyUsbChip } from './usb.js';
 import { showIdModal, updateIdBanner, closeIdModal } from './ui.js';
 import { calculateRamRange } from './oscilloscope/ringBuffer.js';
@@ -136,17 +136,41 @@ export async function executeDeviceIdentification(serial: any, comSelect: HTMLSe
 }
 
 export async function readLoop(serial: any, parser: any, view: any, buffers: any[], stateObj: any): Promise<void> {
-    // ИСПРАВЛЕНИЕ: здесь используем stateObj
     console.log("[readLoop] Функция вызвана. stateObj.isPolling:", stateObj.isPolling);
     
-    const deviceConfig = stateObj.currentDeviceConfig; // Используем stateObj
+    const deviceConfig = stateObj.currentDeviceConfig; 
     if (!deviceConfig?.['RAM']) return;
 
-    const { start, count } = calculateRamRange(deviceConfig['RAM']);
+    const ramSection = deviceConfig['RAM'];
+    const keys = Object.keys(ramSection);
+
+    const { start, count } = calculateRamRange(ramSection);
     const loopId = ++currentLoopId; 
     serialManager.init(serial);
 
-    // ИСПРАВЛЕНИЕ: используем stateObj вместо appState во всех проверках
+    // Строим точную карту параметров с учётом смещения индексов и HEX-кодирования адресов
+    const regMap = keys.map(key => {
+        if (key && ramSection[key]) {
+            const parts = ramSection[key];
+            const type = parts[2];     // Тип данных всегда на 2-й позиции ('TBit', 'TWord'...)
+            
+            // Если TBit, строка регистра (например, r0000.0) на 5-й позиции.
+            // Для остальных типов (TWORD, TInteger, TFloat и др.) регистр на 4-й позиции!
+            const regStr = type === 'TBit' ? parts[5] : parts[4];
+            
+            if (regStr) {
+                // Парсим шестнадцатеричные адреса регистров и маски бит (0-9, A-F)
+                const match = regStr.trim().match(/^r([0-9a-fA-F]+)(?:\.([0-9a-fA-F]+))?$/i);
+                if (match) {
+                    const regAddress = parseInt(match[1], 16); // Парсим строго как HEX (16)
+                    const bitOffset = match[2] !== undefined ? parseInt(match[2], 16) : 0;
+                    return { regAddress, bitOffset, type };
+                }
+            }
+        }
+        return null;
+    });
+
     while (serial.isConnected && stateObj.isPolling && !stateObj.isRefreshing) {
         if (loopId !== currentLoopId) return; 
 
@@ -162,14 +186,15 @@ export async function readLoop(serial: any, parser: any, view: any, buffers: any
         try {
             const reply = await serialManager.executeTransaction(finalPacket, (buf) => buf.length >= 3 + (count * 2) + 2, 100);
             
-            // ИСПРАВЛЕНИЕ: используем stateObj
             if (loopId !== currentLoopId || !stateObj.isPolling || stateObj.isRefreshing) break; 
             
             if (reply?.length > 0) {
                 parser.appendData(reply);
                 let packetData = parser.parsePacket();
                 while (packetData !== null) {
-                    if (packetData.length >= count) handleValidPacket(packetData, view, buffers);
+                    if (packetData.length >= count) {
+                        handleValidPacket(packetData, view, buffers, regMap, start);
+                    }
                     packetData = parser.parsePacket();
                 }
             }
@@ -177,9 +202,52 @@ export async function readLoop(serial: any, parser: any, view: any, buffers: any
         await new Promise(res => setTimeout(res, 20));
     }
 }
-function handleValidPacket(packetData: number[], view: any, buffers: any[]): void {
-    for (let i = 0; i < 70; i++) {
-        buffers[i]?.push(packetData[i] || 0);
+
+// Декодер для знаковых 16-битных целых чисел (TInteger)
+function decodeSignedInt16(val: number): number {
+    return val >= 0x8000 ? val - 0x10000 : val;
+}
+
+// Декодер для 32-битных вещественных чисел (TFloat) из двух 16-битных Modbus-регистров
+function decodeFloat(reg1: number, reg2: number): number {
+    const buffer = new ArrayBuffer(4);
+    const view = new DataView(buffer);
+    // Порядок слов стандартный для Modbus: старшее слово вперед (ABCD)
+    view.setUint16(0, reg1, false);
+    view.setUint16(2, reg2, false);
+    const floatVal = view.getFloat32(0, false);
+    return isNaN(floatVal) || !isFinite(floatVal) ? 0 : floatVal;
+}
+
+function handleValidPacket(
+    packetData: number[], 
+    view: any, 
+    buffers: any[], 
+    regMap: ({ regAddress: number; bitOffset: number; type: string } | null)[], 
+    startReg: number
+): void {
+    for (let i = 0; i < buffers.length; i++) {
+        const mapEntry = regMap[i];
+        
+        if (mapEntry) {
+            const index = mapEntry.regAddress - startReg;
+            const rawValue = packetData[index] !== undefined ? packetData[index] : 0;
+
+            let finalValue = rawValue;
+
+            if (mapEntry.type === 'TBit') {
+                finalValue = (rawValue >> mapEntry.bitOffset) & 1;
+            } else if (mapEntry.type === 'TInteger') {
+                finalValue = decodeSignedInt16(rawValue);
+            } else if (mapEntry.type === 'TFloat') {
+                const nextWord = packetData[index + 1] !== undefined ? packetData[index + 1] : 0;
+                finalValue = decodeFloat(rawValue, nextWord);
+            }
+
+            buffers[i]?.push(finalValue);
+        } else {
+            buffers[i]?.push(0);
+        }
     }
     view.draw(buffers); 
 }
