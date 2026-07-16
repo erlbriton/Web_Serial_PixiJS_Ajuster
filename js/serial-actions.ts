@@ -170,7 +170,7 @@ export async function readLoop(serial: any, parser: any, view: any, buffers: any
         const parts = ramSection[key];
         if (parts) {
             const type = parts[2];
-            const name = parts[1] || parts[0] || '';
+            const name = parts[0] || ''; // Берем строго имя параметра (DExS_PWR_OK)
             const unit = type === 'TBit' ? '—' : (parts[5] || '—');
 
             const nameEl = document.getElementById(`param-name-${i}`);
@@ -181,7 +181,7 @@ export async function readLoop(serial: any, parser: any, view: any, buffers: any
         }
     });
 
-    // 2. Автоматическая генерация и наполнение строк в левой панели осциллографа (.osc-data-grid)
+    // 2. Автоматическая генерация строк таблицы осциллографа с всплывающими подсказками (описание уходит в title)
     const oscTbody = document.querySelector('.osc-data-grid tbody');
     if (oscTbody) {
         let oscHtml = '';
@@ -189,16 +189,25 @@ export async function readLoop(serial: any, parser: any, view: any, buffers: any
             const parts = ramSection[key];
             if (parts) {
                 const type = parts[2];
-                const name = parts[1] || parts[0] || '';
+                const name = parts[0] || ''; // Имя параметра для отображения в колонке
+                const desc = parts[1] || parts[0] || ''; // Полное описание уходит во всплывающую подсказку при наведении
                 const unit = type === 'TBit' ? '—' : (parts[5] || '—');
                 const displayUnit = (type === 'TBit') ? '.' : (unit === '*' ? '—' : unit);
 
                 oscHtml += `
-                    <tr>
-                        <td id="osc-name-${i}" class="param-name" title="${name}">${name}</td>
-                        <td id="osc-hex-${i}" class="hex-val">—</td>
-                        <td id="osc-phys-${i}">—</td>
-                        <td id="osc-unit-${i}">${displayUnit}</td>
+                    <tr title="${desc}">
+                        <td class="param-name" title="${desc}">
+                            <div id="osc-name-${i}" class="osc-cell-text">${name}</div>
+                        </td>
+                        <td>
+                            <div id="osc-hex-${i}" class="osc-cell-text">—</div>
+                        </td>
+                        <td>
+                            <div id="osc-phys-${i}" class="osc-cell-text">—</div>
+                        </td>
+                        <td>
+                            <div id="osc-unit-${i}" class="osc-cell-text">${displayUnit}</div>
+                        </td>
                     </tr>
                 `;
             }
@@ -207,7 +216,7 @@ export async function readLoop(serial: any, parser: any, view: any, buffers: any
     }
 
     // 3. Строим точную карту параметров с кэшированием всех метаданных
-    const regMap: (RegMapEntry | null)[] = keys.map(key => {
+    const regMap: (RegMapEntry | null)[ ] = keys.map(key => {
         if (key && ramSection[key]) {
             const parts = ramSection[key];
             const type = parts[2];     
@@ -219,7 +228,7 @@ export async function readLoop(serial: any, parser: any, view: any, buffers: any
                     const regAddress = parseInt(match[1], 16); 
                     const bitOffset = match[2] !== undefined ? parseInt(match[2], 16) : 0;
                     
-                    const name = parts[1] || parts[0] || '';
+                    const name = parts[0] || ''; // Системное имя параметра
                     const unit = type === 'TBit' ? '—' : (parts[5] || '—');
 
                     let scale = 1;
@@ -299,7 +308,6 @@ function handleValidPacket(
     regMap: (RegMapEntry | null)[], 
     startReg: number
 ): void {
-    // Вычисляем, пора ли обновить текстовые значения в DOM (частота 10 Гц = 100 мс)
     const now = performance.now();
     const shouldUpdateUiText = (now - lastUiUpdateTime) >= 100;
     if (shouldUpdateUiText) {
@@ -324,10 +332,8 @@ function handleValidPacket(
                 finalValue = decodeFloat(rawValue, nextWord);
             }
 
-            // Кольцевые буферы для графиков наполняются всегда (на полной скорости Modbus)
             buffers[i]?.push(finalValue);
 
-            // Текстовые данные обновляем строго по условию 10 Гц
             if (shouldUpdateUiText) {
                 let physicalValue = finalValue;
                 let hexString = '';
@@ -344,14 +350,13 @@ function handleValidPacket(
                     ? physicalValue.toString() 
                     : physicalValue.toFixed(mapEntry.decimals);
 
-                // А. Обновление полей в главной (правой) таблице параметров
                 const hexEl = document.getElementById(`param-hex-${i}`);
                 if (hexEl) hexEl.textContent = hexString;
 
                 const physEl = document.getElementById(`param-phys-${i}`);
                 if (physEl) physEl.textContent = formattedPhysical;
 
-                // Б. Обновление полей в левой панели легенды осциллографа
+                // Обновление текстового содержимого внутренних div-контейнеров таблицы осциллографа
                 const oscHexEl = document.getElementById(`osc-hex-${i}`);
                 if (oscHexEl) oscHexEl.textContent = hexString;
 
@@ -362,6 +367,5 @@ function handleValidPacket(
             buffers[i]?.push(0);
         }
     }
-    // Холст PixiJS перерисовывается на полной скорости для плавности линий
     view.draw(buffers); 
 }

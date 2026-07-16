@@ -5,7 +5,7 @@ interface RingBuffer {
 export class PixiOscilloscope {
     private width: number;
     private height: number;
-    private rowHeight: number = 20;
+    private readonly rowHeight: number = 20; // Строгая высота строк 20px
     private totalRows: number;
     private scrollY: number = 0;
     private brightColors: number[];
@@ -60,8 +60,27 @@ export class PixiOscilloscope {
         });
         resizeObserver.observe(container);
 
+        // Инициализируем правый общий скроллбар внутри контейнера холста
+        let customScrollbar = container.querySelector('.osc-custom-scrollbar') as HTMLElement;
+        if (!customScrollbar) {
+            customScrollbar = document.createElement('div');
+            customScrollbar.className = 'osc-custom-scrollbar';
+            
+            const scrollbarContent = document.createElement('div');
+            scrollbarContent.className = 'osc-custom-scrollbar-content';
+            
+            customScrollbar.appendChild(scrollbarContent);
+            container.appendChild(customScrollbar);
+        }
+
+        const scrollbarContent = customScrollbar.querySelector('.osc-custom-scrollbar-content') as HTMLElement;
+        if (scrollbarContent) {
+            scrollbarContent.style.height = `${this.totalRows * this.rowHeight}px`;
+        }
+
         // @ts-ignore
         this.stageContainer = new PIXI.Container();
+        this.stageContainer.y = 0;
         this.app.stage.addChild(this.stageContainer);
 
         this.graphicsList = [];
@@ -72,18 +91,44 @@ export class PixiOscilloscope {
             this.graphicsList.push(g);
         }
 
-        container.addEventListener('wheel', (e: WheelEvent) => {
-            this.scrollY -= e.deltaY;
-            const minScroll = this.height - (this.totalRows * this.rowHeight);
-            if (this.scrollY > 0) this.scrollY = 0;
-            if (this.scrollY < minScroll) this.scrollY = minScroll;
+        const triggerRender = () => {
+            if (this.app.renderer && this.app.stage) {
+                this.app.renderer.render(this.app.stage);
+            }
+        };
+
+        const oscLeftScroll = (
+            container.parentElement?.querySelector('.osc-table-wrapper') ||
+            container.closest('.osc-container')?.querySelector('.osc-table-wrapper') ||
+            container.closest('.osc-main-area')?.querySelector('.osc-table-wrapper')
+        ) as HTMLElement;
+
+        // ЕДИНЫЙ ОБРАБОТЧИК СКРОЛЛА (Правый скроллбар управляет всем)
+        customScrollbar.addEventListener('scroll', () => {
+            this.scrollY = -customScrollbar.scrollTop;
             this.stageContainer.y = this.scrollY;
+            
+            if (oscLeftScroll) {
+                oscLeftScroll.scrollTop = customScrollbar.scrollTop;
+            }
+            triggerRender();
         });
+
+        // Скроллинг колесиком мыши над графиками осциллографа
+        container.addEventListener('wheel', (e: WheelEvent) => {
+            e.preventDefault();
+            customScrollbar.scrollTop += e.deltaY;
+        }, { passive: false });
+
+        // Скроллинг левой колонки параметров (колесиком в ней)
+        if (oscLeftScroll) {
+            oscLeftScroll.addEventListener('wheel', (e: WheelEvent) => {
+                e.preventDefault();
+                customScrollbar.scrollTop += e.deltaY;
+            }, { passive: false });
+        }
     }
 
-    /**
-     * Позволяет динамически обновить типы параметров для корректного отображения
-     */
     setRowTypes(types: string[]): void {
         this.rowTypes = types;
     }
@@ -96,7 +141,6 @@ export class PixiOscilloscope {
         const timePhasePx = ((Date.now() % 1000) / 1000) * gridSpacing;
         const gridStartX = this.width - timePhasePx;
 
-        // Переменная для отслеживания и чередования цветов подряд идущих дискретных сигналов
         let consecutiveDiscreteCount = 0;
 
         for (let i = 0; i < this.totalRows; i++) {
@@ -114,10 +158,14 @@ export class PixiOscilloscope {
             g.drawRect(0, yOffset, this.width, this.rowHeight);
             g.endFill();
 
+            // ВРЕМЕННО: Отрисовка ЯРКОЙ разделительной линии под каждой строкой графика
+            // Цвет изменен с 0x2d2d2d на 0x555555 (такой же, как border-bottom слева у параметров)
+            g.lineStyle(1, 0x555555, 1);
+            g.moveTo(0, yOffset + this.rowHeight - 1);
+            g.lineTo(this.width, yOffset + this.rowHeight - 1);
+
             const buffer = buffers[i];
             
-            // Определяем, дискретный ли параметр:
-            // Либо тип явно задан как 'TBit', либо автоопределяем по содержимому буфера (только 0 и 1)
             let isDiscrete = this.rowTypes[i] === 'TBit';
             if (this.rowTypes[i] === undefined && buffer) {
                 const data = buffer.getLinearData();
@@ -126,17 +174,14 @@ export class PixiOscilloscope {
                 }
             }
 
-            // Выбираем цвет для текущего канала
             let color: number;
             if (isDiscrete) {
-                const DISCRETE_BLUE = 0x56CCF2;   // Светло-синий (голубой) как на скриншоте
-                const DISCRETE_BROWN = 0xF2C94C;  // Коричнево-янтарный как на скриншоте
+                const DISCRETE_BLUE = 0x56CCF2;
+                const DISCRETE_BROWN = 0xF2C94C;
                 
-                // Если идут подряд, цвета чередуются: синий, коричневый, синий, коричневый...
                 color = (consecutiveDiscreteCount % 2 === 0) ? DISCRETE_BLUE : DISCRETE_BROWN;
                 consecutiveDiscreteCount++;
             } else {
-                // Если встретился аналоговый параметр, сбрасываем счетчик подряд идущих дискретных
                 consecutiveDiscreteCount = 0;
                 color = this.brightColors[i % 10];
             }
@@ -144,11 +189,12 @@ export class PixiOscilloscope {
             if (buffer) {
                 const data = buffer.getLinearData();
                 if (data && data.length > 1) {
-                    // 1. Отрисовка фоновой сетки
+                    // 1. Отрисовка фоновой сетки (вертикальные линии времени)
                     g.lineStyle(1, 0x333333, 1); 
                     for (let x = gridStartX; x >= 0; x -= gridSpacing) {
                         g.moveTo(x, yOffset);
-                        g.lineTo(x, yOffset + this.rowHeight);
+                        // Проводим вертикальные линии сетки, не доходя 1px до разделителя
+                        g.lineTo(x, yOffset + this.rowHeight - 1);
                     }
 
                     if (isDiscrete) {
@@ -156,16 +202,16 @@ export class PixiOscilloscope {
                         const drawSegment = (xStart: number, xEnd: number, val: number) => {
                             if (xStart <= xEnd) return;
                             if (val !== 0) {
-                                // Значение = 1: сплошной заполненный прямоугольник с отступами сверху и снизу в 2px
                                 g.lineStyle(0);
                                 g.beginFill(color, 1);
-                                g.drawRect(xEnd, yOffset + 2, xStart - xEnd, this.rowHeight - 4);
+                                // Высота прямоугольника 14px (отступы 2px сверху и 4px снизу, чтобы не налезать на разделитель)
+                                g.drawRect(xEnd, yOffset + 2, xStart - xEnd, this.rowHeight - 6);
                                 g.endFill();
                             } else {
-                                // Значение = 0: тонкая аккуратная линия у нижней границы строки (толщиной 1.5px)
                                 g.lineStyle(1.5, color, 1);
-                                g.moveTo(xStart, yOffset + this.rowHeight - 2);
-                                g.lineTo(xEnd, yOffset + this.rowHeight - 2);
+                                // Линия нуля чуть выше разделительной черты
+                                g.moveTo(xStart, yOffset + this.rowHeight - 3);
+                                g.lineTo(xEnd, yOffset + this.rowHeight - 3);
                             }
                         };
 
@@ -192,14 +238,15 @@ export class PixiOscilloscope {
                         }
 
                     } else {
-                        // 3. Отрисовка классического аналогового параметра (линия)
+                        // 3. Отрисовка аналогового параметра (линия)
                         g.lineStyle(1, color, 1);
                         let started = false;
                         for (let j = 0; j < data.length; j++) {
                             const x = this.width - (j * 2);
                             if (x < 0) break;
-                            const val = (data[data.length - 1 - j] / 1100) * this.rowHeight;
-                            const y = yOffset + (this.rowHeight - val);
+                            // Сжимаем амплитуду до 16px, оставляя по 2px отступов снизу и сверху
+                            const val = (data[data.length - 1 - j] / 1100) * (this.rowHeight - 4);
+                            const y = yOffset + (this.rowHeight - 2 - val);
                             if (!started) {
                                 g.moveTo(x, y);
                                 started = true;
@@ -234,13 +281,11 @@ export class PixiOscilloscope {
     }
 
     updateRows(rowCount: number, types?: string[]): void {
-        // Очищаем старые графические объекты
         this.graphicsList.forEach(g => this.stageContainer.removeChild(g));
         this.graphicsList = [];
         this.totalRows = rowCount;
         this.rowTypes = types || [];
 
-        // Создаем новые
         for (let i = 0; i < this.totalRows; i++) {
             // @ts-ignore
             const g = new PIXI.Graphics();
@@ -248,9 +293,28 @@ export class PixiOscilloscope {
             this.graphicsList.push(g);
         }
         
-        // Сбрасываем прокрутку, если она стала неактуальной
         this.scrollY = 0;
         this.stageContainer.y = 0;
+        
+        const container = (this.app?.view as HTMLCanvasElement)?.parentElement;
+        if (container) {
+            let customScrollbar = container.querySelector('.osc-custom-scrollbar') as HTMLElement;
+            if (!customScrollbar) {
+                customScrollbar = document.createElement('div');
+                customScrollbar.className = 'osc-custom-scrollbar';
+                
+                const scrollbarContent = document.createElement('div');
+                scrollbarContent.className = 'osc-custom-scrollbar-content';
+                
+                customScrollbar.appendChild(scrollbarContent);
+                container.appendChild(customScrollbar);
+            }
+            const scrollbarContent = customScrollbar.querySelector('.osc-custom-scrollbar-content') as HTMLElement;
+            if (scrollbarContent) {
+                scrollbarContent.style.height = `${this.totalRows * this.rowHeight}px`;
+            }
+            customScrollbar.scrollTop = 0;
+        }
         
         console.log(`DEBUG: Осциллограф обновлен. Графиков теперь: ${this.totalRows}`);
     }
