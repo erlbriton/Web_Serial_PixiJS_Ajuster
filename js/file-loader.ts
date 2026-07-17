@@ -3,14 +3,14 @@ import { showIdModal, populateDeviceForm } from './ui.js';
 import { addDeviceToRegistry } from './ini-manager/tree-core.js';
 import { renderDeviceTree } from './ini-manager/tree-ui.js';
 import { renderModbusTable } from './tree.js';
-// Если у вас нет типов для IniParser, он будет any, это нормально
 import { IniParser } from './iniParser.js';
+import { MonitorModel } from './model/monitorModel.js';
+import { MonitorRow } from './model/monitorRow.js';
+import { MonitorSignal } from './model/monitorSignal.js';
 import { RingBuffer } from './oscilloscope/ringBuffer.js';
 
-
-// Интерфейс для appState, чтобы TS знал, что внутри
 interface AppState {
-    parser: any; 
+    parser: IniParser;
     currentDeviceConfig: any;
 }
 
@@ -33,15 +33,48 @@ export function setupFileHandling(fileInput: HTMLInputElement, appState: AppStat
                     if (config['DEVICE']) {
                         appState.currentDeviceConfig = config;
 
-                        // ОБНОВЛЕНИЕ ОСЦИЛЛОГРАФА
-                        const ramParams = appState.parser.getSectionParameterKeys('RAM');
-                        const rowCount = ramParams.length > 0 ? ramParams.length : 1;
+                        // ==========================================
+                        // НОВАЯ АРХИТЕКТУРА: Создание MonitorModel
+                        // ==========================================
+                        const model = new MonitorModel();
+                        const ramParams = appState.parser.getSectionParameters('RAM');
                         
+                        for (const param of ramParams) {
+                            const regAddressNum = parseInt(param.regAddress, 10);
+                            const multiplierNum = parseFloat(param.multiplier.replace(',', '.'));
+                            
+                            // Создаем сигнал как объект, соответствующий интерфейсу MonitorSignal
+                            const signal: MonitorSignal = {
+                                id: param.hexAddress || param.name,
+                                name: param.name,
+                                description: param.description,
+                                dataType: param.dataType,
+                                register: isNaN(regAddressNum) ? 0 : regAddressNum,
+                                unit: param.unit,
+                                multiplier: isNaN(multiplierNum) ? 1.0 : multiplierNum,
+                                buffer: new RingBuffer(2500),
+                                currentValue: 0
+                            };
+                            
+                            const row = new MonitorRow(signal);
+                            model.addRow(row);
+                        }
+                        
+                        // Сохраняем модель как единственный источник истины
+                        (window as any).oscModel = model;
+                        
+                        console.log(`✅ DEBUG: MonitorModel создана. Строк: ${model.rowCount}`);
+
+                        // Обновляем старый интерфейс (временный мостик)
+                        const rowCount = model.rowCount > 0 ? model.rowCount : 1;
                         view.updateRows(rowCount);
                         
-                        // Заменяем содержимое массива buffers на новые
-                        const newBuffers = Array.from({ length: rowCount }, () => new RingBuffer(2500));
-                        buffers.splice(0, buffers.length, ...newBuffers);
+                        // Заполняем старый массив буферов из новой модели
+                        buffers.length = 0;
+                        for (const row of model.rows) {
+                            buffers.push(row.signal.buffer);
+                        }
+                        // ==========================================
 
                         const isAdded = addDeviceToRegistry(config);
                         if (isAdded) renderDeviceTree(appState, view, buffers);
@@ -63,17 +96,44 @@ export function setupFileHandling(fileInput: HTMLInputElement, appState: AppStat
     });
 }
 
-export function refreshOscilloscope(parser: any, view: any, buffers: any[]) {
-    // Добавляем отладку
-    const ramParams = parser.getSectionParameterKeys('RAM');
-    console.log("DEBUG: Параметры RAM:", ramParams); 
-    console.log("DEBUG: Количество параметров RAM:", ramParams ? ramParams.length : 0);
-
-    const rowCount = ramParams.length > 0 ? ramParams.length : 1;
+export function refreshOscilloscope(parser: IniParser, view: any, buffers: any[]) {
+    // Применяем ту же логику для ручного обновления
+    const model = new MonitorModel();
+    const ramParams = parser.getSectionParameters('RAM');
     
+    for (const param of ramParams) {
+        const regAddressNum = parseInt(param.regAddress, 10);
+        const multiplierNum = parseFloat(param.multiplier.replace(',', '.'));
+        
+        for (const param of ramParams) {
+                            const regAddressNum = parseInt(param.regAddress, 10);
+                            const multiplierNum = parseFloat(param.multiplier.replace(',', '.'));
+                            
+                            // Создаем сигнал как объект, соответствующий интерфейсу MonitorSignal
+                            const signal: MonitorSignal = {
+                                id: param.hexAddress || param.name,
+                                name: param.name,
+                                description: param.description,
+                                dataType: param.dataType,
+                                register: isNaN(regAddressNum) ? 0 : regAddressNum,
+                                unit: param.unit,
+                                multiplier: isNaN(multiplierNum) ? 1.0 : multiplierNum,
+                                buffer: new RingBuffer(2500),
+                                currentValue: 0
+                            };
+                            
+                            const row = new MonitorRow(signal);
+                            model.addRow(row);
+                        }
+    
+    (window as any).oscModel = model;
+    
+    const rowCount = model.rowCount > 0 ? model.rowCount : 1;
     view.updateRows(rowCount);
     
-    // Пересоздаем буферы
-    const newBuffers = Array.from({ length: rowCount }, () => new RingBuffer(2500));
-    buffers.splice(0, buffers.length, ...newBuffers);
+    buffers.length = 0;
+    for (const row of model.rows) {
+        buffers.push(row.signal.buffer);
+    }
+}
 }

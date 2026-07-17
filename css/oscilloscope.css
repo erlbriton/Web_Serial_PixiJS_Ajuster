@@ -72,20 +72,18 @@
     overflow: hidden;
 }
 
+/* ТАБЛИЦА - скроллится нативно */
 .osc-table-wrapper {
     flex: 0 0 460px;
     height: 100%;
-    overflow-y: auto !important;  /* Нативная прокрутка для стабильности JS */
+    overflow-y: auto !important;
     overflow-x: hidden;
     background: #0a0a0a;
-    position: relative;           /* Контейнер для позиционирования липкой шапки */
-
-    /* Полностью скрываем видимость скроллбара, сохраняя его функционал */
-    scrollbar-width: none;        /* Firefox */
-    -ms-overflow-style: none;     /* IE/Edge */
+    position: relative;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
 }
 
-/* Скрываем скроллбар в Chrome, Safari, Opera */
 .osc-table-wrapper::-webkit-scrollbar {
     display: none !important;
 }
@@ -113,7 +111,6 @@
 .col-phys { width: 20%; }
 .col-unit { width: 20%; }
 
-/* Базовые свойства ячеек шапки */
 .header-cell {
     position: sticky;
     top: 0;
@@ -127,25 +124,22 @@
     box-shadow: inset 0 -2px 0 #333;
     font-size: 12px;
     font-weight: normal;
-    
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: clip !important;
     box-sizing: border-box !important;
 }
 
-/* Выравнивание первой ячейки шапки (Имя) */
 .header-cell:first-child {
-    padding-left: 8px !important;   /* Отступ от левой границы */
-    padding-right: 0 !important;    /* Зазор полностью убран */
+    padding-left: 8px !important;
+    padding-right: 0 !important;
     text-align: left !important;
 }
 
-/* Центрирование остальных ячеек шапки (Hex, Phys, Unit) */
 .header-cell:nth-child(2),
 .header-cell:nth-child(3),
 .header-cell:nth-child(4) {
-    padding-left: 0 !important;     /* Зазоры полностью убраны */
+    padding-left: 0 !important;
     padding-right: 0 !important;
     text-align: center !important;
 }
@@ -164,8 +158,8 @@
     background: rgba(0, 85, 255, 0.3);
 }
 
-/* Область графиков */
-.osc-canvas-column {
+/* ОБЛАСТЬ ГРАФИКОВ - НЕ скроллится, только читает позиции из DOM */
+.osc-graph-wrapper {
     display: flex;
     flex-direction: column;
     flex: 1;
@@ -173,7 +167,7 @@
     min-width: 0;
     background: #000;
     position: relative;
-    overflow: hidden;
+    overflow: hidden; /* ВАЖНО: нет скролла! */
 }
 
 .osc-canvas-header {
@@ -194,75 +188,52 @@
     position: relative;
 }
 
-/* СТРОГИЙ ДЕФОЛТНЫЙ ЦВЕТ СТРОК */
+/* СТРОКИ ТАБЛИЦЫ */
 .osc-data-grid tbody tr {
     color: #aab1ca !important;
-    height: 20px !important;             /* Строго фиксируем высоту строки */
+    height: 20px !important;
     min-height: 20px !important;
     max-height: 20px !important;
 }
 
-/* Ячейки строк с данными */
 .osc-data-grid td {
-    height: 20px !important;             /* Высота ячейки строго 20px */
-    line-height: 20px !important;        /* Высота текстовой линии строго 20px */
-    padding-top: 0 !important;           /* Сброс вертикальных отступов, чтобы избежать clipping текста */
+    height: 20px !important;
+    line-height: 20px !important;
+    padding-top: 0 !important;
     padding-bottom: 0 !important;
-    white-space: nowrap !important;      /* СТРОГО запрещаем перенос строки на уровне ячейки */
-    overflow: hidden !important;         /* Скрываем всё, что выходит за пределы */
-    text-overflow: clip !important;      /* Жестко обрезаем без троеточий */
-    box-sizing: border-box !important;   /* Отступ уменьшает внутреннюю область, не раздувая ячейку */
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: clip !important;
+    box-sizing: border-box !important;
     vertical-align: middle;
-
-    /* ЯРКИЙ РАЗДЕЛИТЕЛЬ СТРОК СЛЕВА (Параметры) */
-    border-bottom: 1px solid #555555 !important; 
+    border-bottom: 1px solid #555555 !important;
 }
 
-/* Специфичные стили для первой колонки (Имя) */
 .osc-data-grid td:first-child {
-    padding-left: 8px !important;        /* Отступ от левого края таблицы */
-    padding-right: 0 !important;         /* Зазор полностью убран */
+    padding-left: 8px !important;
+    padding-right: 0 !important;
     text-align: left !important;
 }
 
-/* Специфичные стили для колонок Hex, Phys, Unit (2, 3, 4) */
 .osc-data-grid td:nth-child(2),
 .osc-data-grid td:nth-child(3),
 .osc-data-grid td:nth-child(4) {
-    padding-left: 0 !important;         /* Зазоры полностью убраны */
+    padding-left: 0 !important;
     padding-right: 0 !important;
     text-align: center !important;
 }
 
-/* Общие стили для контейнера текста внутри ячейки */
 .osc-cell-text {
-    display: block !important;           /* Делает элемент блочным для точного расчета ширины */
-    width: 100% !important;              /* Занимает всю доступную ширину ячейки */
-    white-space: nowrap !important;      /* СТРОГО запрещаем перенос строки внутри контейнера */
-    overflow: hidden !important;         /* Скрываем выход за пределы */
-    text-overflow: clip !important;      /* Жестко обрезаем без троеточий */
+    display: block !important;
+    width: 100% !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: clip !important;
     box-sizing: border-box !important;
 }
 
-/* Выравнивание текста по центру внутри контейнеров колонок 2, 3, 4 (Hex, Phys, Unit) */
 .osc-data-grid td:nth-child(2) .osc-cell-text,
 .osc-data-grid td:nth-child(3) .osc-cell-text,
 .osc-data-grid td:nth-child(4) .osc-cell-text {
     text-align: center !important;
-}
-
-/* Общий вертикальный скроллбар справа от графиков */
-.osc-custom-scrollbar {
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 16px;                         /* Стандартная ширина скроллбара */
-    height: 100%;
-    overflow-y: scroll;
-    overflow-x: hidden;
-    z-index: 10;
-}
-
-.osc-custom-scrollbar-content {
-    width: 1px;
 }

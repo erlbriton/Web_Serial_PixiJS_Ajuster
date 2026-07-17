@@ -1,7 +1,7 @@
 // js/tree.ts
-import { currentDeviceConfig, parseRegisterAddress, hexToFloat32, float32ToHex } from './ini-manager/tree-core';
-import { clearAnyActiveCellEditors, initHexCellEditor, initPhysicalCellEditor } from './ini-manager/table-editor';
-import { updateRowValues } from './ini-manager/tree-ui';
+import { currentDeviceConfig, parseRegisterAddress, hexToFloat32, float32ToHex } from './ini-manager/tree-core.js';
+import { clearAnyActiveCellEditors, initHexCellEditor, initPhysicalCellEditor } from './ini-manager/table-editor.js';
+import { updateRowValues } from './ini-manager/tree-ui.js';
 
 export function renderModbusTable(config: Record<string, Record<string, string[]>>): void {
     const tableBody = document.getElementById('grid-data-rows') as HTMLTableSectionElement | null;
@@ -16,6 +16,10 @@ export function renderModbusTable(config: Record<string, Record<string, string[]
 
     const sectionData = config[selectedMode];
     const keys = Object.keys(sectionData);
+
+    // Безопасное получение модели осциллографа
+    const w = window as any;
+    const oscModel = w.oscModel;
 
     // Используем цикл с индексом i для связывания строк с буфером осциллографа и выводом данных
     for (let i = 0; i < keys.length; i++) {
@@ -69,7 +73,15 @@ export function renderModbusTable(config: Record<string, Record<string, string[]
 
             tr.setAttribute('data-hex-index', hexIndex.toString());
             
-            // Внедряем id="param-..." для динамического обновления данных в реальном времени
+            // ==========================================
+            // СИНХРОНИЗАЦИЯ: Устанавливаем высоту строки из модели осциллографа
+            // ==========================================
+            if (oscModel && oscModel.rows && oscModel.rows[i]) {
+                const rowHeight = oscModel.rows[i].height || 20;
+                tr.style.height = `${rowHeight}px`;
+            }
+            // ==========================================
+
             tr.innerHTML = `
                 <td>${key}</td>
                 <td id="param-name-${i}" class="param-name" title="${name}">${name}</td>

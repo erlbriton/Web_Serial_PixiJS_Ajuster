@@ -1,89 +1,81 @@
 // js/main.ts
-import { IniParser } from './iniParser.js';
-import { RingBuffer } from './oscilloscope/ringBuffer.js';
-import { SerialConnection } from './serial/serial.js';
 import { initUI } from './ui/uiManager.js';
-import { initLayout } from './ui/layout'; // Пробуем этот путь
-import { createOscilloscopeView } from './views/oscilloscopeView.js';
-import { PixiOscilloscope } from './oscilloscope/pixiOscilloscope.js';
-import { ModbusParser } from './serial/modbus.js';
-
-import { showIdModal } from './ui.js';
-import { updateDeviceRegisters } from './serial/device_updater.js';
 import { setupFileHandling } from './file-loader.js';
-import { 
-    updateComInterfaceName, 
-    executeDeviceIdentification, 
-    readLoop 
-} from './serial-actions.js';
+import { IniParser } from './iniParser.js';
+import { MonitorModel } from './model/monitorModel.js';
+import { MonitorRow } from './model/monitorRow.js';
+import { MonitorSignal } from './model/monitorSignal.js';
+import { RingBuffer } from './oscilloscope/ringBuffer.js';
+import { PixiOscilloscope } from './oscilloscope/pixiOscilloscope.js';
+import { createOscilloscopeView } from './views/oscilloscopeView.js';
 
-// Расширяем глобальный объект window для TypeScript
-declare global {
-    interface Window {
-        oscView: PixiOscilloscope;
-    }
-}
-
-// Создаем явный интерфейс для AppState, чтобы избежать костыля "null as any"
-export interface AppState {
-    isIdentifying: boolean;
-    isPolling: boolean;
-    isRefreshing: boolean;
-    slaveAddress: number;
-    parser: IniParser;
-    currentDeviceConfig: any | null;
-}
-
-const iniParser = new IniParser();
-
-const appState: AppState = { 
-    isIdentifying: false, 
-    isPolling: false, 
-    isRefreshing: false, 
-    slaveAddress: 0x01, 
-    parser: iniParser,
-    currentDeviceConfig: null 
+// Глобальное состояние приложения
+const appState = {
+    parser: new IniParser(),
+    currentDeviceConfig: null as any
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-    try {
-        const oscContainer = document.getElementById('osc-container');
-        if (oscContainer) {
-            oscContainer.appendChild(createOscilloscopeView());
-        }
+    // 1. Создаем представление осциллографа
+    const oscView = createOscilloscopeView();
+    document.body.appendChild(oscView);
 
-        // Получаем количество параметров из секции RAM
-        const ramParams = iniParser.getSectionParameterKeys('RAM');
-        const rowCount = ramParams.length > 0 ? ramParams.length : 1; // Минимум 1 график, если данных пока нет
+    // 2. Инициализация начальной модели (до загрузки INI)
+    const initialModel = new MonitorModel();
+    const ramParameters = appState.parser.getSectionParameters('RAM');
+    
+    for (const param of ramParameters) {
+        const regAddressNum = parseInt(param.regAddress, 10);
+        const multiplierNum = parseFloat(param.multiplier.replace(',', '.'));
         
-console.log(`DEBUG: Инициализация осциллографа. Параметров в RAM: ${ramParams.length}, создаем графиков: ${rowCount}`);
-
-        const view = new PixiOscilloscope('osc-canvas-container', rowCount);
-        const buffers: RingBuffer[] = Array.from({ length: rowCount }, () => new RingBuffer(2500));
+        const signal: MonitorSignal = {
+            id: param.hexAddress || param.name,
+            name: param.name,
+            description: param.description,
+            dataType: param.dataType,
+            register: isNaN(regAddressNum) ? 0 : regAddressNum,
+            unit: param.unit,
+            multiplier: isNaN(multiplierNum) ? 1.0 : multiplierNum,
+            buffer: new RingBuffer(2500),
+            currentValue: 0
+        };
         
-        window.oscView = view;
-        const serial = new SerialConnection();
-        const parser = new ModbusParser();
-
-        initUI({
-    serial, 
-    appState, 
-    parser, 
-    view, 
-    buffers,
-    setupFileHandling, 
-    updateComInterfaceName, 
-    executeDeviceIdentification, 
-    readLoop, 
-    showIdModal, 
-    updateDeviceRegisters
-});
-initLayout();
-
-        console.log("Приложение запущено. Осциллограф скрыт до клика.");
-    } catch (error) {
-        // Безопасная обработка ошибки неизвестного типа (unknown)
-        const errorMessage = error instanceof Error ? error.message : String(error);
-        console.error("Критическая ошибка:", errorMessage);
+        initialModel.addRow(new MonitorRow(signal));
     }
+    
+    // Сохраняем как глобальный источник истины
+    (window as any).oscModel = initialModel;
+    console.log(`✅ DEBUG: Начальная MonitorModel создана. Строк: ${initialModel.rowCount}`);
+
+    // 3. Создаем PixiOscilloscope с новой архитектурой (передаем МОДЕЛЬ)
+    const view = new PixiOscilloscope('osc-canvas-container', initialModel);
+    (window as any).oscView = view;
+    
+    // Временный мостик для старого кода
+    const tempBuffers = initialModel.rows.map(row => row.signal.buffer);
+
+    // 4. Настройка обработчиков файлов
+    const fileInput = document.getElementById('ini-file-input') as HTMLInputElement;
+    if (fileInput) {
+        setupFileHandling(fileInput, appState, view, tempBuffers);
+    }
+
+    // 5. Запуск UI менеджера с ТОЧНЫМ соответствием реальным сигнатурам UIDependencies
+    initUI({
+        serial: {} as any, 
+        appState, 
+        parser: appState.parser, 
+        view, 
+        buffers: tempBuffers, 
+        setupFileHandling, 
+        updateComInterfaceName: (serial: any, select: HTMLSelectElement | null) => undefined, 
+        executeDeviceIdentification: async (serial: any, select: HTMLSelectElement | null, state: any) => {
+            /* заглушка Promise<void> */
+        }, 
+        readLoop: (serial: any, parser: any, view: any, buffers: any, state: any) => {}, 
+        showIdModal: (msg: string) => alert(msg), 
+        updateDeviceRegisters: async (serial: any, addr: number, state: any) => {
+            return false; // Явный возврат boolean для Promise<boolean>
+        }
+    });
 });

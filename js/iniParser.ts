@@ -1,4 +1,6 @@
-interface Parameter {
+//js/iniParser.ts
+
+export interface Parameter {
     name: string;
     description: string;
     dataType: string;
@@ -129,4 +131,21 @@ export class IniParser {
         const data = this.parsedData[section.toUpperCase()];
         return data ? Object.keys(data) : [];
     }
+
+/**
+     * Возвращает массив всех параметров из указанной секции (например, 'RAM')
+     */
+    getSectionParameters(section: string): Parameter[] {
+        const keys = this.getSectionParameterKeys(section);
+        const parameters: Parameter[] = [];
+
+        for (const key of keys) {
+            const param = this.getParsedParameter(section, key);
+            if (param) {
+                parameters.push(param);
+            }
+        }
+        return parameters;
+    }
+
 }
