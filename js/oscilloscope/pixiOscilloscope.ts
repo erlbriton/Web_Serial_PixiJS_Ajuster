@@ -99,52 +99,59 @@ export class PixiOscilloscope {
      * ГЛАВНЫЙ МЕТОД ОТРИСОВКИ
      * Использует геометрию из ScopeLayout, а НЕ DOM-координаты
      */
-    draw(): void {
+        draw(buffers?: any[]): void {
+       // console.log("🎨 draw() вызван! scrollY:", this.scrollY, "height:", this.height, "buffers:", buffers?.length);
+           if (buffers && buffers[0]) {
+      // console.log(" Длина первого буфера:", buffers[0].getLinearData().length);
+   }
+        const model = (window as any).oscModel as MonitorModel;
+        if (!model) return;
+
         const visibleRows = this.layout.getVisibleRows(this.scrollY, this.height);
+        //console.log(`📏 Видимых строк: ${visibleRows.length}`);
+
         let visibleIndex = 0;
+        let drawnCount = 0;
 
         for (const rowGeom of visibleRows) {
             const g = this.graphicsList[visibleIndex];
             if (!g) break;
 
-            g.visible = true;
-            g.clear();
-            
-            // Фон строки
-            g.beginFill(0x1a1a1a);
-            g.drawRect(0, rowGeom.y, this.width, rowGeom.height);
-            g.endFill();
+            // Читаем данные ИЗ ПЕРЕДАННЫХ BUFFERS, а не из модели!
+            const data = buffers && buffers[rowGeom.channelIndex] 
+                ? buffers[rowGeom.channelIndex].getLinearData() 
+                : null;
 
-            // Разделительная линия
-            g.lineStyle(1, 0x555555, 1);
-            g.moveTo(0, rowGeom.y + rowGeom.height - 1);
-            g.lineTo(this.width, rowGeom.y + rowGeom.height - 1);
-
-            // Получаем данные канала из модели (через глобальный доступ или передачу)
-            // В идеале модель должна передаваться в конструктор, но пока используем window
-            const model = (window as any).oscModel as MonitorModel;
-            const channel = model?.rows[rowGeom.channelIndex];
-            
-            if (channel && channel.signal.buffer) {
-                const data = channel.signal.buffer.getLinearData();
-                if (data && data.length > 1) {
-                    this.drawWaveform(g, data, rowGeom, channel.signal.dataType === 'TBit');
-                }
+            if (data && data.length > 1) {
+                g.visible = true;
+                g.clear();
+                g.beginFill(0x1a1a1a);
+                g.drawRect(0, rowGeom.y, this.width, rowGeom.height);
+                g.endFill();
+                g.lineStyle(1, 0x555555, 1);
+                g.moveTo(0, rowGeom.y + rowGeom.height - 1);
+                g.lineTo(this.width, rowGeom.y + rowGeom.height - 1);
+                this.drawWaveform(g, data, rowGeom, false);
+              
+// g.beginFill(0xFF0000); // Красный цвет
+// g.drawRect(0, rowGeom.y, this.width, rowGeom.height);
+// g.endFill();
+                drawnCount++;
+            } else {
+                g.visible = false;
             }
-
             visibleIndex++;
         }
 
-        // Скрываем неиспользованные объекты
         for (let j = visibleIndex; j < this.graphicsList.length; j++) {
             this.graphicsList[j].visible = false;
         }
 
+        //console.log(`✅ Отрисовано графиков: ${drawnCount}`);
         if (this.app.renderer) {
             this.app.renderer.render(this.app.stage);
         }
     }
-
         private drawWaveform(g: any, dataRaw: Float32Array | number[], geom: RowGeometry, isDiscrete: boolean): void {
         // Безопасное приведение к number[] для совместимости с логикой отрисовки
         const data = Array.from(dataRaw); 
