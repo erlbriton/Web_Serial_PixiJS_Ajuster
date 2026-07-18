@@ -169,3 +169,37 @@ th {
     cursor: col-resize;
     z-index: 1000;
 }
+
+/* === ФИКС РЕСАЙЗА ПРАВОЙ ТАБЛИЦЫ (ТОЛЬКО .modbus-grid) === */
+.modbus-grid {
+    table-layout: fixed !important;
+    width: auto !important; /* Позволяет таблице расширяться за пределы контейнера при ресайзе */
+    min-width: 100%;
+}
+
+/* Снимаем блокировку ширины с внутренних элементов ячеек, если она там есть */
+.modbus-grid td *, 
+.modbus-grid th * {
+    max-width: 100%;
+}
+
+/* === ФИКС РЕСАЙЗА ПРАВОЙ ТАБЛИЦЫ (.modbus-grid) === */
+.modbus-grid {
+    table-layout: fixed !important;
+    width: auto !important; /* Критично: позволяет таблице стать шире контейнера при ресайзе */
+    min-width: 100% !important;
+}
+
+.modbus-grid th, 
+.modbus-grid td {
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+    white-space: nowrap !important;
+}
+
+/* Сброс любых внутренних блокировок ширины внутри ячеек */
+.modbus-grid th *, 
+.modbus-grid td * {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+}

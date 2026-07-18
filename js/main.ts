@@ -103,72 +103,92 @@ document.addEventListener('DOMContentLoaded', () => {
         getInfo() { return this.port ? this.port.getInfo() : {}; }
     };
 
-    // ==========================================
-    // ФУНКЦИЯ РЕСАЙЗА ТАБЛИЦЫ (ПУЛЕНЕПРОБИВАЕМАЯ ВЕРСИЯ)
+        // ==========================================
+    // ПУЛЕНЕПРОБИВАЕМЫЙ РЕСАЙЗ ПРАВОЙ ТАБЛИЦЫ (.modbus-grid)
     // ==========================================
     (window as any).initTableResizers = () => {
-        document.querySelectorAll('.osc-table-resizer').forEach(el => el.remove());
-        const table = document.querySelector('.osc-data-grid') as HTMLTableElement;
-        if (!table) return;
+        // 1. Чистим старые ресайзеры ТОЛЬКО в правой таблице
+        document.querySelectorAll('.modbus-grid .table-resizer').forEach(el => el.remove());
 
-        const headers = table.querySelectorAll('th') as NodeListOf<HTMLElement>;
-        headers.forEach((header) => {
-            header.style.position = 'relative';
+        // 2. Находим правую таблицу
+        const table = document.querySelector('.modbus-grid') as HTMLTableElement;
+        if (!table) {
+            console.warn("⚠️ Таблица .modbus-grid не найдена!");
+            return;
+        }
+
+        // 3. Принудительно задаем таблице правильные свойства для ресайза
+        table.style.setProperty('table-layout', 'fixed', 'important');
+        table.style.setProperty('width', 'auto', 'important'); // Позволяет таблице расширяться
+        table.style.setProperty('min-width', '100%', 'important');
+
+        // 4. Находим последнюю строку в thead (там находятся нужные нам заголовки колонок)
+        const thead = table.querySelector('thead');
+        if (!thead) return;
+        
+        const headerRows = thead.querySelectorAll('tr');
+        const targetHeaderRow = headerRows[headerRows.length - 1]; 
+        const headers = targetHeaderRow.querySelectorAll('th') as NodeListOf<HTMLElement>;
+
+        headers.forEach((th, idx) => {
+            // Не добавляем ресайзер на самую последнюю колонку
+            if (idx === headers.length - 1) return;
+
             const resizer = document.createElement('div');
-            resizer.className = 'osc-table-resizer';
-            header.appendChild(resizer);
+            resizer.className = 'table-resizer';
+            
+            // Гарантируем, что у заголовка правильное позиционирование для ресайзера
+            th.style.position = 'relative';
+            th.appendChild(resizer);
 
             let startX = 0;
             let startWidth = 0;
 
             const onMouseDown = (e: MouseEvent) => {
-                startX = e.pageX;
-                startWidth = header.offsetWidth;
-                resizer.classList.add('active');
-                document.addEventListener('mousemove', onMouseMove);
-                document.addEventListener('mouseup', onMouseUp);
                 e.preventDefault();
                 e.stopPropagation();
+                
+                startX = e.clientX;
+                startWidth = th.offsetWidth;
+                
+                resizer.classList.add('active');
+                document.body.classList.add('is-resizing');
+                
+                document.addEventListener('mousemove', onMouseMove);
+                document.addEventListener('mouseup', onMouseUp);
             };
 
             const onMouseMove = (e: MouseEvent) => {
-                const newWidth = Math.max(30, startWidth + (e.pageX - startX));
-                const cellIndex = Array.from(header.parentNode!.children).indexOf(header);
-                const isSecondHeaderRow = header.parentNode.rowIndex === 1;
+                const delta = e.clientX - startX;
+                const newWidth = Math.max(40, startWidth + delta); // Минимум 40px
 
-                // Принудительно меняем ширину заголовка с !important
-                header.style.setProperty('width', newWidth + 'px', 'important');
-                header.style.setProperty('min-width', newWidth + 'px', 'important');
-                header.style.setProperty('max-width', newWidth + 'px', 'important');
+                // А. Меняем ширину заголовка с максимальным приоритетом
+                th.style.setProperty('width', `${newWidth}px`, 'important');
+                th.style.setProperty('min-width', `${newWidth}px`, 'important');
+                th.style.setProperty('max-width', `${newWidth}px`, 'important');
 
-                // Меняем ширину всех ячеек в этой колонке с !important
-                if (isSecondHeaderRow) {
-                    const rows = table.rows;
-                    for (let i = 2; i < rows.length; i++) {
-                        if (rows[i].cells[cellIndex]) {
-                            const cell = rows[i].cells[cellIndex];
-                            cell.style.setProperty('width', newWidth + 'px', 'important');
-                            cell.style.setProperty('min-width', newWidth + 'px', 'important');
-                            cell.style.setProperty('max-width', newWidth + 'px', 'important');
-                            
-                            const textBlock = cell.querySelector('.osc-cell-text');
-                            if (textBlock) {
-                                textBlock.style.setProperty('width', newWidth + 'px', 'important');
-                            }
-                        }
+                // Б. Меняем ширину ВСЕХ ячеек (td) в этом столбце с максимальным приоритетом
+                const rows = table.rows;
+                for (let i = 1; i < rows.length; i++) { // начинаем с 1, чтобы пропустить thead
+                    const cell = rows[i].cells[idx];
+                    if (cell) {
+                        cell.style.setProperty('width', `${newWidth}px`, 'important');
+                        cell.style.setProperty('min-width', `${newWidth}px`, 'important');
+                        cell.style.setProperty('max-width', `${newWidth}px`, 'important');
                     }
                 }
             };
 
             const onMouseUp = () => {
                 resizer.classList.remove('active');
+                document.body.classList.remove('is-resizing');
                 document.removeEventListener('mousemove', onMouseMove);
                 document.removeEventListener('mouseup', onMouseUp);
             };
 
             resizer.addEventListener('mousedown', onMouseDown);
         });
-        console.log(`✅ Ресайзеры инициализированы. Найдено заголовков: ${headers.length}`);
+        console.log(`✅ Ресайзеры правой таблицы (.modbus-grid) инициализированы. Найдено колонок: ${headers.length}`);
     };
     // ==========================================
 
