@@ -5,7 +5,28 @@ export function createOscilloscopeView(): HTMLElement {
     container.className = 'osc-container';
     container.innerHTML = OSCILLOSCOPE_TEMPLATE;
 
-    // Генерация строк с 5 колонками внутри .osc-body
+    // Начальные ширины колонок (в пикселях)
+    let colWidths = {
+        name: 180,
+        hex: 90,
+        phys: 110,
+        unit: 80
+    };
+
+    // Функция применения ширин через CSS-переменные
+    const applyWidths = () => {
+        container.style.setProperty('--name-width', `${colWidths.name}px`);
+        container.style.setProperty('--hex-width', `${colWidths.hex}px`);
+        container.style.setProperty('--phys-width', `${colWidths.phys}px`);
+        container.style.setProperty('--unit-width', `${colWidths.unit}px`);
+        
+        // Обновляем ширину левой панели = сумма всех колонок
+        const totalWidth = colWidths.name + colWidths.hex + colWidths.phys + colWidths.unit;
+        const leftPanel = container.querySelector('#osc-left-panel') as HTMLElement;
+        leftPanel.style.flex = `0 0 ${totalWidth}px`;
+    };
+
+    // Генерация строк с данными
     const renderLeftRows = () => {
         const model = (window as any).oscModel;
         if (!model) return;
@@ -38,10 +59,11 @@ export function createOscilloscopeView(): HTMLElement {
     };
 
     renderLeftRows();
+    applyWidths(); // Применяем начальные ширины
 
+    // Сплиттер основной панели (оставляем как есть — он уже работает по нужному принципу)
     const leftPanel = container.querySelector('#osc-left-panel') as HTMLElement;
     const panelSplitter = container.querySelector('#osc-panel-splitter') as HTMLElement;
-    const headerLeft = container.querySelector('.osc-main-header-left') as HTMLElement;
 
     panelSplitter.addEventListener('mousedown', (e: Event) => {
         const md = e as MouseEvent;
@@ -55,7 +77,7 @@ export function createOscilloscopeView(): HTMLElement {
 
         const doPanelDrag = (me: MouseEvent) => {
             finalWidth = Math.max(200, startWidth + (me.clientX - startX));
-            // УБРАНО: строка, которая двигала шапку в реальном времени
+            panelSplitter.style.transform = `translateX(${finalWidth - startWidth}px)`;
         };
 
         const stopPanelDrag = () => {
@@ -63,10 +85,16 @@ export function createOscilloscopeView(): HTMLElement {
             document.body.classList.remove('is-resizing');
             panelSplitter.style.transform = '';
             leftPanel.style.flex = `0 0 ${finalWidth}px`;
-            // Теперь шапка двигается только здесь, при отпускании мышки
-            if (headerLeft) {
-                headerLeft.style.flex = `0 0 ${finalWidth}px`;
-            }
+            
+            // Пересчитываем ширины колонок пропорционально новой ширине панели
+            const scale = finalWidth / (colWidths.name + colWidths.hex + colWidths.phys + colWidths.unit);
+            colWidths.name = Math.max(30, Math.round(colWidths.name * scale));
+            colWidths.hex = Math.max(30, Math.round(colWidths.hex * scale));
+            colWidths.phys = Math.max(30, Math.round(colWidths.phys * scale));
+            colWidths.unit = Math.max(30, Math.round(colWidths.unit * scale));
+            
+            applyWidths();
+            
             window.removeEventListener('mousemove', doPanelDrag);
             window.removeEventListener('mouseup', stopPanelDrag);
         };
@@ -74,6 +102,69 @@ export function createOscilloscopeView(): HTMLElement {
         window.addEventListener('mousemove', doPanelDrag);
         window.addEventListener('mouseup', stopPanelDrag);
     });
+
+    // === РЕСАЙЗ КОЛОНОК (ТОЛЬКО ПРИ ОТПУСКАНИИ МЫШКИ) ===
+    const initColumnResizers = () => {
+        const headerLeft = container.querySelector('.osc-main-header-left') as HTMLElement;
+        if (!headerLeft) return;
+
+        const headers = Array.from(headerLeft.querySelectorAll('.c-name, .c-hex, .c-phys, .c-unit')) as HTMLElement[];
+
+        headers.forEach((th) => {
+            const resizer = document.createElement('div');
+            resizer.className = 'osc-table-resizer';
+            th.appendChild(resizer);
+
+            resizer.addEventListener('mousedown', (e: Event) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                const startX = (e as MouseEvent).clientX;
+                const currentWidth = th.getBoundingClientRect().width;
+                
+                let cssVarName = '';
+                let key: keyof typeof colWidths | null = null;
+                
+                if (th.classList.contains('c-name')) { cssVarName = '--name-width'; key = 'name'; }
+                else if (th.classList.contains('c-hex')) { cssVarName = '--hex-width'; key = 'hex'; }
+                else if (th.classList.contains('c-phys')) { cssVarName = '--phys-width'; key = 'phys'; }
+                else if (th.classList.contains('c-unit')) { cssVarName = '--unit-width'; key = 'unit'; }
+
+                if (!cssVarName || !key) return;
+
+                // Сохраняем начальные значения для восстановления при отмене
+                const startWidth = currentWidth;
+                let newWidth = startWidth;
+
+                // Визуальный ресайзер: двигаем только саму полоску
+                const onMouseMove = (me: MouseEvent) => {
+                    const delta = me.clientX - startX;
+                    newWidth = Math.max(30, startWidth + delta);
+                    // Меняем только transform у ресайзера, чтобы не вызывать перерисовку
+                    resizer.style.transform = `translateX(${delta}px)`;
+                };
+
+                const onMouseUp = () => {
+                    resizer.classList.remove('active');
+                    document.body.classList.remove('is-resizing');
+                    resizer.style.transform = ''; // Сбрасываем визуальный сдвиг
+                    window.removeEventListener('mousemove', onMouseMove);
+                    window.removeEventListener('mouseup', onMouseUp);
+
+                    // ТОЛЬКО ЗДЕСЬ, при отпускании, обновляем реальную ширину
+                    colWidths[key!] = newWidth;
+                    applyWidths();
+                };
+
+                resizer.classList.add('active');
+                document.body.classList.add('is-resizing');
+                window.addEventListener('mousemove', onMouseMove);
+                window.addEventListener('mouseup', onMouseUp);
+            });
+        });
+    };
+
+    initColumnResizers();
 
     return container;
 }

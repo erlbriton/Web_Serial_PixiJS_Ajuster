@@ -9,6 +9,12 @@
     width: 100%;
     overflow: hidden;
     background: #000;
+    
+    /* === НАЧАЛЬНЫЕ ШИРИНЫ КОЛОНОК === */
+    --name-width: 180px;
+    --hex-width: 90px;
+    --phys-width: 110px;
+    --unit-width: 80px;
 }
 
 .osc-container.hidden {
@@ -149,11 +155,12 @@
     border-right: none;
 }
 
-.col-name { flex: 0 0 40%; justify-content: flex-start; }
-.col-hex { flex: 0 0 20%; justify-content: center; font-family: monospace; }
-.col-phys { flex: 0 0 20%; justify-content: center; }
-.col-unit { flex: 0 0 20%; justify-content: center; }
-.col-graph { flex: 0 0 20%; }
+/* ИСПОЛЬЗУЕМ ПЕРЕМЕННЫЕ ВМЕСТО ПРОЦЕНТОВ */
+.col-name { flex: 0 0 var(--name-width); justify-content: flex-start; }
+.col-hex { flex: 0 0 var(--hex-width); justify-content: center; font-family: monospace; }
+.col-phys { flex: 0 0 var(--phys-width); justify-content: center; }
+.col-unit { flex: 0 0 var(--unit-width); justify-content: center; }
+.col-graph { flex: 1; }
 
 /* =========================================
    ОБЛАСТЬ ГРАФИКОВ
@@ -221,8 +228,9 @@
     box-sizing: border-box;
 }
 
+/* ИСПОЛЬЗУЕМ ТЕ ЖЕ ПЕРЕМЕННЫЕ В ШАПКЕ */
 .osc-main-header .c-name {
-    flex: 0 0 40%;
+    flex: 0 0 var(--name-width);
     display: flex;
     align-items: center;
     justify-content: flex-start;
@@ -232,10 +240,11 @@
     border-right: 1px solid #333;
     box-sizing: border-box;
     height: 100%;
+    position: relative; /* Для ресайзера */
 }
 
 .osc-main-header .c-hex {
-    flex: 0 0 20%;
+    flex: 0 0 var(--hex-width);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -244,10 +253,11 @@
     border-right: 1px solid #333;
     box-sizing: border-box;
     height: 100%;
+    position: relative;
 }
 
 .osc-main-header .c-phys {
-    flex: 0 0 20%;
+    flex: 0 0 var(--phys-width);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -256,10 +266,11 @@
     border-right: 1px solid #333;
     box-sizing: border-box;
     height: 100%;
+    position: relative;
 }
 
 .osc-main-header .c-unit {
-    flex: 0 0 20%;
+    flex: 0 0 var(--unit-width);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -268,6 +279,7 @@
     border-right: 1px solid #333;
     box-sizing: border-box;
     height: 100%;
+    position: relative;
 }
 
 .osc-main-header .c-graph {
@@ -279,4 +291,20 @@
     color: #aaa;
     box-sizing: border-box;
     height: 100%;
+}
+
+/* Ресайзер колонок */
+.osc-table-resizer {
+    position: absolute;
+    right: 0;
+    top: 0;
+    width: 6px;
+    height: 100%;
+    cursor: col-resize;
+    z-index: 10;
+    background: transparent;
+}
+
+.osc-table-resizer:hover, .osc-table-resizer.active {
+    background: rgba(0, 85, 255, 0.4);
 }
