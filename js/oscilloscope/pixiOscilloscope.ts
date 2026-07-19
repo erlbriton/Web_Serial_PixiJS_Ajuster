@@ -15,13 +15,24 @@ export class PixiOscilloscope {
     private stageContainer: any;
     private graphicsList: any[];
     
-    // Новая архитектура
     private layout: ScopeLayout;
     private tableWrapper: HTMLElement | null = null;
+    private containerElement: HTMLElement;
+    
+    private scrollbarTrack: HTMLDivElement;
+    private scrollbarThumb: HTMLDivElement;
+    private isDraggingScrollbar: boolean = false;
+    private scrollbarDragStartY: number = 0;
+    private scrollbarDragStartScroll: number = 0;
+    
+    private needsRedraw: boolean = true;
+    private lastBuffers: any[] | null = null;
 
     constructor(containerId: string, model: MonitorModel) {
         const container = document.getElementById(containerId);
         if (!container) throw new Error(`Контейнер "${containerId}" не найден!`);
+        
+        this.containerElement = container;
 
         const rect = container.getBoundingClientRect();
         this.width = rect.width || 800;
@@ -32,25 +43,78 @@ export class PixiOscilloscope {
             0x0099FF, 0xFF0088, 0xADFF2F, 0xFFFFFF, 0x7B68EE
         ];
 
-        // Инициализация PIXI
+        // Инициализация PIXI с автостартом тикера
         // @ts-ignore
         this.app = new PIXI.Application({
-            width: 800, height: 600, backgroundColor: 0x000000, antialias: true
+            width: this.width, 
+            height: this.height, 
+            backgroundColor: 0x000000, 
+            antialias: true,
+            autoStart: true
         });
         (this.app.view as HTMLCanvasElement).style.cssText = "width:100%;height:100%;display:block;";
-        this.app.ticker.autoStart = false;
-        this.app.ticker.stop();
         container.appendChild(this.app.view as HTMLCanvasElement);
 
-        // Находим обертку таблицы для синхронизации скролла
+        // Создаем скроллбар
+        this.scrollbarTrack = document.createElement('div');
+        this.scrollbarTrack.style.cssText = 'position:absolute; right:2px; top:2px; bottom:2px; width:8px; background:rgba(255,255,255,0.1); border-radius:4px; z-index:50; cursor:pointer;';
+        this.scrollbarThumb = document.createElement('div');
+        this.scrollbarThumb.style.cssText = 'position:absolute; left:0; top:0; width:100%; background:rgba(0, 85, 255, 0.6); border-radius:4px; pointer-events:none;';
+        this.scrollbarTrack.appendChild(this.scrollbarThumb);
+        container.appendChild(this.scrollbarTrack);
+
+        // Обработчики скроллбара
+        this.scrollbarTrack.addEventListener('mousedown', (e: MouseEvent) => {
+            this.isDraggingScrollbar = true;
+            this.scrollbarDragStartY = e.clientY;
+            this.scrollbarDragStartScroll = this.scrollY;
+            this.scrollbarThumb.style.background = 'rgba(0, 85, 255, 0.9)';
+            e.preventDefault();
+        });
+
+        document.addEventListener('mousemove', (e: MouseEvent) => {
+            if (!this.isDraggingScrollbar) return;
+            
+            const model = (window as any).oscModel as MonitorModel;
+            if (!model) return;
+
+            const totalHeight = model.rows.reduce((sum: number, row: any) => sum + row.height, 0);
+            const maxScroll = Math.max(0, totalHeight - this.height);
+            
+            const deltaY = e.clientY - this.scrollbarDragStartY;
+            const trackHeight = this.scrollbarTrack.offsetHeight;
+            const scrollRatio = maxScroll / trackHeight;
+            
+            this.scrollY = this.scrollbarDragStartScroll + (deltaY * scrollRatio);
+            this.scrollY = Math.max(0, Math.min(this.scrollY, maxScroll));
+            
+            this.stageContainer.y = -this.scrollY;
+            this.updateScrollbar();
+            
+            if (this.tableWrapper) {
+                this.tableWrapper.scrollTop = this.scrollY;
+            }
+            
+            this.needsRedraw = true;
+        });
+
+        document.addEventListener('mouseup', () => {
+            if (this.isDraggingScrollbar) {
+                this.isDraggingScrollbar = false;
+                this.scrollbarThumb.style.background = 'rgba(0, 85, 255, 0.6)';
+            }
+        });
+
+        // Синхронизация с таблицей
         const oscContainer = container.closest('.osc-container');
         if (oscContainer) {
             this.tableWrapper = oscContainer.querySelector('.osc-table-wrapper') as HTMLElement;
-            // ЕДИНЫЙ СКРОЛЛ: Таблица управляет всем
+            
             this.tableWrapper.addEventListener('scroll', () => {
                 this.scrollY = this.tableWrapper!.scrollTop;
                 this.stageContainer.y = -this.scrollY;
-                this.draw(); // Перерисовываем при скролле
+                this.updateScrollbar();
+                this.needsRedraw = true;
             }, { passive: true });
         }
 
@@ -59,7 +123,7 @@ export class PixiOscilloscope {
         this.stageContainer = new PIXI.Container();
         this.app.stage.addChild(this.stageContainer);
 
-        // Пул графики (с запасом)
+        // Пул графики
         this.graphicsList = [];
         for (let i = 0; i < 300; i++) {
             // @ts-ignore
@@ -68,10 +132,40 @@ export class PixiOscilloscope {
             this.graphicsList.push(g);
         }
 
-        // Инициализация Layout и первая отрисовка
+        // Инициализация Layout
         this.layout = new ScopeLayout();
         this.layout.recalculate(model);
-        this.draw();
+
+        // Добавляем тикер для плавной перерисовки
+        this.app.ticker.add(() => {
+            if (this.needsRedraw) {
+                this.draw(this.lastBuffers);
+                this.needsRedraw = false;
+            }
+        });
+
+        // Обработчик колеса мыши
+        container.addEventListener('wheel', (e: WheelEvent) => {
+            e.preventDefault();
+            
+            const currentModel = (window as any).oscModel as MonitorModel;
+            if (!currentModel) return;
+
+            const totalHeight = currentModel.rows.reduce((sum: number, row: any) => sum + row.height, 0);
+            const maxScroll = Math.max(0, totalHeight - this.height);
+
+            this.scrollY += e.deltaY * 1.5;
+            this.scrollY = Math.max(0, Math.min(this.scrollY, maxScroll));
+            
+            this.stageContainer.y = -this.scrollY;
+            this.updateScrollbar();
+            
+            if (this.tableWrapper) {
+                this.tableWrapper.scrollTop = this.scrollY;
+            }
+            
+            this.needsRedraw = true;
+        }, { passive: false });
 
         // Ресайз
         new ResizeObserver((entries) => {
@@ -81,62 +175,73 @@ export class PixiOscilloscope {
                     this.width = width;
                     this.height = height;
                     this.app.renderer.resize(width, height);
-                    this.draw();
+                    this.needsRedraw = true;
                 }
             }
         }).observe(container);
+
+        // Первая отрисовка
+        this.needsRedraw = true;
     }
 
-    /**
-     * Вызывается ИЗВНЕ, когда изменилась высота/видимость строк в модели
-     */
     updateLayout(model: MonitorModel): void {
         this.layout.recalculate(model);
-        this.draw();
+        this.needsRedraw = true;
     }
 
-    /**
-     * ГЛАВНЫЙ МЕТОД ОТРИСОВКИ
-     * Использует геометрию из ScopeLayout, а НЕ DOM-координаты
-     */
-        draw(buffers?: any[]): void {
-       // console.log("🎨 draw() вызван! scrollY:", this.scrollY, "height:", this.height, "buffers:", buffers?.length);
-           if (buffers && buffers[0]) {
-      // console.log(" Длина первого буфера:", buffers[0].getLinearData().length);
-   }
+    private updateScrollbar(): void {
+        const model = (window as any).oscModel as MonitorModel;
+        if (!model) return;
+
+        const totalHeight = model.rows.reduce((sum: number, row: any) => sum + row.height, 0);
+        
+        if (totalHeight <= this.height) {
+            this.scrollbarTrack.style.display = 'none';
+            return;
+        }
+        this.scrollbarTrack.style.display = 'block';
+        
+        const thumbHeight = Math.max(20, (this.height / totalHeight) * this.height);
+        const maxTop = this.height - thumbHeight;
+        const thumbTop = (this.scrollY / (totalHeight - this.height)) * maxTop;
+        
+        this.scrollbarThumb.style.height = `${thumbHeight}px`;
+        this.scrollbarThumb.style.top = `${thumbTop}px`;
+    }
+
+    draw(buffers?: any[]): void {
+        if (buffers) {
+            this.lastBuffers = buffers;
+        }
+        
         const model = (window as any).oscModel as MonitorModel;
         if (!model) return;
 
         const visibleRows = this.layout.getVisibleRows(this.scrollY, this.height);
-        //console.log(`📏 Видимых строк: ${visibleRows.length}`);
 
         let visibleIndex = 0;
-        let drawnCount = 0;
 
         for (const rowGeom of visibleRows) {
             const g = this.graphicsList[visibleIndex];
             if (!g) break;
 
-            // Читаем данные ИЗ ПЕРЕДАННЫХ BUFFERS, а не из модели!
-            const data = buffers && buffers[rowGeom.channelIndex] 
-                ? buffers[rowGeom.channelIndex].getLinearData() 
+            const data = this.lastBuffers && this.lastBuffers[rowGeom.channelIndex] 
+                ? this.lastBuffers[rowGeom.channelIndex].getLinearData() 
                 : null;
 
             if (data && data.length > 1) {
                 g.visible = true;
                 g.clear();
+                
                 g.beginFill(0x1a1a1a);
                 g.drawRect(0, rowGeom.y, this.width, rowGeom.height);
                 g.endFill();
+                
                 g.lineStyle(1, 0x555555, 1);
                 g.moveTo(0, rowGeom.y + rowGeom.height - 1);
                 g.lineTo(this.width, rowGeom.y + rowGeom.height - 1);
+                
                 this.drawWaveform(g, data, rowGeom, false);
-              
-// g.beginFill(0xFF0000); // Красный цвет
-// g.drawRect(0, rowGeom.y, this.width, rowGeom.height);
-// g.endFill();
-                drawnCount++;
             } else {
                 g.visible = false;
             }
@@ -146,24 +251,15 @@ export class PixiOscilloscope {
         for (let j = visibleIndex; j < this.graphicsList.length; j++) {
             this.graphicsList[j].visible = false;
         }
-
-        //console.log(`✅ Отрисовано графиков: ${drawnCount}`);
-        if (this.app.renderer) {
-            this.app.renderer.render(this.app.stage);
-        }
     }
-        private drawWaveform(g: any, dataRaw: Float32Array | number[], geom: RowGeometry, isDiscrete: boolean): void {
-        // Безопасное приведение к number[] для совместимости с логикой отрисовки
+
+    private drawWaveform(g: any, dataRaw: Float32Array | number[], geom: RowGeometry, isDiscrete: boolean): void {
         const data = Array.from(dataRaw); 
-        
         const { y, height } = geom;
         const gridSpacing = 50;
         const timePhasePx = ((Date.now() % 1000) / 1000) * gridSpacing;
         const gridStartX = this.width - timePhasePx;
 
-        // ... остальной код метода остается без изменений ...
-
-        // Сетка времени
         g.lineStyle(1, 0x333333, 1);
         for (let x = gridStartX; x >= 0; x -= gridSpacing) {
             g.moveTo(x, y);
@@ -173,7 +269,6 @@ export class PixiOscilloscope {
         const color = isDiscrete ? 0x56CCF2 : this.brightColors[geom.channelIndex % 10];
 
         if (isDiscrete) {
-            // Дискретный сигнал
             let segStartVal = data[data.length - 1];
             let segStartX = this.width;
             
@@ -206,7 +301,6 @@ export class PixiOscilloscope {
             if (finalX > 0) drawSeg(segStartX, finalX, segStartVal);
 
         } else {
-            // Аналоговый сигнал
             g.lineStyle(1, color, 1);
             let started = false;
             for (let j = 0; j < data.length; j++) {
@@ -226,18 +320,15 @@ export class PixiOscilloscope {
         const rect = container.getBoundingClientRect();
         if (rect.width > 0 && rect.height > 0 && this.app?.renderer) {
             this.app.renderer.resize(rect.width, rect.height);
-            this.draw();
+            this.needsRedraw = true;
         }
     }
-    /**
-     * Метод-мостик для совместимости со старым кодом file-loader.ts
-     * Принимает rowCount и buffers, но игнорирует их, используя модель из window.oscModel
-     */
+
     updateRows(rowCount?: number, types?: string[]): void {
         const model = (window as any).oscModel as MonitorModel;
         if (model) {
             this.layout.recalculate(model);
-            this.draw();
+            this.needsRedraw = true;
             console.log(`✅ DEBUG: updateRows вызван через мостик. Строк в модели: ${model.rowCount}`);
         } else {
             console.warn('⚠️ updateRows вызван, но oscModel еще не создан');
