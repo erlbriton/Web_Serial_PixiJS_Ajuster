@@ -28,7 +28,6 @@ export const OSCILLOSCOPE_TEMPLATE = `
 </div>
     <div class="osc-main-splitter" id="osc-panel-splitter"></div>
     <div class="osc-graph-wrapper" id="osc-graph-wrapper">
-        <div class="osc-canvas-header">Graph</div>
-        <div id="osc-canvas-container"></div>
-    </div>
+    <div id="osc-canvas-container"></div>
+</div>
 </div>`;
