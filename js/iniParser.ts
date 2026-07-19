@@ -110,17 +110,22 @@ export class IniParser {
         console.log("DEBUG: Содержимое multiplierCache:", this.multiplierCache);
     }
 
-    getParsedParameter(section: string, key: string): Parameter | null {
+        getParsedParameter(section: string, key: string): Parameter | null {
         const dataArray = this.parsedData[section.toUpperCase()]?.[key];
         if (!Array.isArray(dataArray)) return null;
+
+        // Если тип параметра TBit, то единицы измерения нет. 
+        // Принудительно ставим пустую строку вместо адреса бита
+        const rawDataType = dataArray[2] || "";
+        const rawUnit = (rawDataType === 'TBit') ? "" : (dataArray[5] || "");
 
         return {
             name: dataArray[0] || "",
             description: dataArray[1] || "",
-            dataType: dataArray[2] || "",
+            dataType: rawDataType,
             hexAddress: dataArray[3] || "",
             regAddress: dataArray[4] || "",
-            unit: dataArray[5] || "",
+            unit: rawUnit,
             multiplier: dataArray[6] || "",
             byteCount: dataArray[7] || "",
             sign: dataArray[8] || "",

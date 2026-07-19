@@ -19,7 +19,7 @@ export function createOscilloscopeView(): HTMLElement {
         container.style.setProperty('--hex-width', `${colWidths.hex}px`);
         container.style.setProperty('--phys-width', `${colWidths.phys}px`);
         container.style.setProperty('--unit-width', `${colWidths.unit}px`);
-        
+
         // Обновляем ширину левой панели = сумма всех колонок
         const totalWidth = colWidths.name + colWidths.hex + colWidths.phys + colWidths.unit;
         const leftPanel = container.querySelector('#osc-left-panel') as HTMLElement;
@@ -30,7 +30,7 @@ export function createOscilloscopeView(): HTMLElement {
     const renderLeftRows = () => {
         const model = (window as any).oscModel;
         if (!model) return;
-        
+
         const bodyContainer = container.querySelector('#osc-grid-body') as HTMLElement;
         if (!bodyContainer) return;
 
@@ -40,22 +40,18 @@ export function createOscilloscopeView(): HTMLElement {
             const rowDiv = document.createElement('div');
             rowDiv.className = 'osc-data-row';
             rowDiv.style.height = `${row.height}px`;
-
-            const hexVal = row.signal.register.toString(16).toUpperCase().padStart(4, '0');
-            const physVal = typeof row.signal.currentValue === 'number' 
-                ? row.signal.currentValue.toFixed(2) 
-                : row.signal.currentValue;
-
-            rowDiv.innerHTML = `
+///////////////////////////////////////////////////////////
+                                                // Временно выводим тип параметра прямо в колонку Unit для проверки
+                        rowDiv.innerHTML = `
                 <div class="col col-name" title="${row.signal.name}">${row.signal.name}</div>
-                <div class="col col-hex">${hexVal}</div>
-                <div class="col col-phys">${physVal}</div>
-                <div class="col col-unit">${row.signal.unit}</div>
+                <div class="col col-hex">${row.signal.register.toString(16).toUpperCase().padStart(4, '0')}</div>
+                <div class="col col-phys">${typeof row.signal.currentValue === 'number' ? row.signal.currentValue.toFixed(2) : row.signal.currentValue}</div>
+                <div class="col col-unit">${row.signal.dataType === 'TBit' ? '' : row.signal.unit}</div>
                 <div class="col col-graph"></div>
             `;
             
             bodyContainer.appendChild(rowDiv);
-        });
+        });/////////////////////////////////////////////////////
     };
 
     renderLeftRows();
@@ -73,7 +69,7 @@ export function createOscilloscopeView(): HTMLElement {
 
         const startX = md.clientX;
         const startWidth = leftPanel.offsetWidth;
-        let finalWidth = startWidth; 
+        let finalWidth = startWidth;
 
         const doPanelDrag = (me: MouseEvent) => {
             finalWidth = Math.max(200, startWidth + (me.clientX - startX));
@@ -85,16 +81,16 @@ export function createOscilloscopeView(): HTMLElement {
             document.body.classList.remove('is-resizing');
             panelSplitter.style.transform = '';
             leftPanel.style.flex = `0 0 ${finalWidth}px`;
-            
+
             // Пересчитываем ширины колонок пропорционально новой ширине панели
             const scale = finalWidth / (colWidths.name + colWidths.hex + colWidths.phys + colWidths.unit);
             colWidths.name = Math.max(30, Math.round(colWidths.name * scale));
             colWidths.hex = Math.max(30, Math.round(colWidths.hex * scale));
             colWidths.phys = Math.max(30, Math.round(colWidths.phys * scale));
             colWidths.unit = Math.max(30, Math.round(colWidths.unit * scale));
-            
+
             applyWidths();
-            
+
             window.removeEventListener('mousemove', doPanelDrag);
             window.removeEventListener('mouseup', stopPanelDrag);
         };
@@ -118,13 +114,13 @@ export function createOscilloscopeView(): HTMLElement {
             resizer.addEventListener('mousedown', (e: Event) => {
                 e.preventDefault();
                 e.stopPropagation();
-                
+
                 const startX = (e as MouseEvent).clientX;
                 const currentWidth = th.getBoundingClientRect().width;
-                
+
                 let cssVarName = '';
                 let key: keyof typeof colWidths | null = null;
-                
+
                 if (th.classList.contains('c-name')) { cssVarName = '--name-width'; key = 'name'; }
                 else if (th.classList.contains('c-hex')) { cssVarName = '--hex-width'; key = 'hex'; }
                 else if (th.classList.contains('c-phys')) { cssVarName = '--phys-width'; key = 'phys'; }
