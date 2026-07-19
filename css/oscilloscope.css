@@ -123,10 +123,9 @@
 .osc-data-row {
     display: flex;
     width: 100%;
-    font-size: 12px !important; /* Шрифт 12 */
+    font-size: 12px !important;
     color: #aab1ca;
     box-sizing: border-box;
-    /* Яркая разделительная горизонтальная линия */
     border-bottom: 1px solid #888888 !important; 
 }
 
@@ -143,18 +142,18 @@
     text-overflow: clip;
     border-right: 1px solid #333;
     height: 100%;
+    box-sizing: border-box;
 }
 
 .osc-data-row .col:last-child {
     border-right: none;
 }
 
-/* Пропорции 5 колонок */
 .col-name { flex: 0 0 40%; justify-content: flex-start; }
-.col-hex { flex: 0 0 15%; justify-content: center; font-family: monospace; }
-.col-phys { flex: 0 0 15%; justify-content: center; }
-.col-unit { flex: 0 0 15%; justify-content: center; }
-.col-graph { flex: 1; } /* 5-я колонка пустая, место под график */
+.col-hex { flex: 0 0 20%; justify-content: center; font-family: monospace; }
+.col-phys { flex: 0 0 20%; justify-content: center; }
+.col-unit { flex: 0 0 20%; justify-content: center; }
+.col-graph { flex: 0 0 20%; }
 
 /* =========================================
    ОБЛАСТЬ ГРАФИКОВ
@@ -195,4 +194,89 @@
     display: block !important;
     width: 100% !important;
     height: 100% !important;
+}
+
+/* =========================================
+   ШАПКА НАД ВСЕЙ ОБЛАСТЬЮ ОСЦИЛЛОГРАФА
+   ========================================= */
+.osc-main-header {
+    display: flex;
+    height: 20px;
+    width: 100%;
+    background: #222;
+    border-bottom: 1px solid #333;
+    flex-shrink: 0;
+    box-sizing: border-box;
+}
+
+.osc-main-header-left {
+    flex: 0 0 460px;
+    display: flex;
+    box-sizing: border-box;
+}
+
+.osc-main-header-right {
+    flex: 1;
+    display: flex;
+    box-sizing: border-box;
+}
+
+.osc-main-header .c-name {
+    flex: 0 0 40%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 0 8px;
+    font-size: 12px;
+    color: #aaa;
+    border-right: 1px solid #333;
+    box-sizing: border-box;
+    height: 100%;
+}
+
+.osc-main-header .c-hex {
+    flex: 0 0 20%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #aaa;
+    border-right: 1px solid #333;
+    box-sizing: border-box;
+    height: 100%;
+}
+
+.osc-main-header .c-phys {
+    flex: 0 0 20%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #aaa;
+    border-right: 1px solid #333;
+    box-sizing: border-box;
+    height: 100%;
+}
+
+.osc-main-header .c-unit {
+    flex: 0 0 20%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #aaa;
+    border-right: 1px solid #333;
+    box-sizing: border-box;
+    height: 100%;
+}
+
+.osc-main-header .c-graph {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    color: #aaa;
+    box-sizing: border-box;
+    height: 100%;
 }

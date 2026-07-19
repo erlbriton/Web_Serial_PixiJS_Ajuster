@@ -8,26 +8,31 @@ export const OSCILLOSCOPE_TEMPLATE = `
     <button class="osc-btn" title="Измерение амплитуды сигнала"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2L8 6h3v12H8l4 4 4-4h-3V6h3l-4-4z"/></svg></button>
 </div>
 
-<div class="osc-main-area">
-    <div class="osc-table-wrapper" id="osc-left-panel">
-
-    <div class="osc-header">
-
+<!-- ШАПКА НАД ВСЕЙ ОБЛАСТЬЮ -->
+<div class="osc-main-header">
+    <div class="osc-main-header-left">
         <div class="c-name">Name</div>
         <div class="c-hex">Hex</div>
         <div class="c-phys">Physical</div>
         <div class="c-unit">Unit</div>
-
     </div>
-
-    <div
-        id="osc-grid-body"
-        class="osc-body">
+    <div class="osc-main-header-right">
+        <div class="c-graph">Graph</div>
     </div>
-
 </div>
+
+<div class="osc-main-area">
+    <div class="osc-table-wrapper" id="osc-left-panel">
+        <div class="osc-header">
+            <div class="c-name">Name</div>
+            <div class="c-hex">Hex</div>
+            <div class="c-phys">Physical</div>
+            <div class="c-unit">Unit</div>
+        </div>
+        <div id="osc-grid-body" class="osc-body"></div>
+    </div>
     <div class="osc-main-splitter" id="osc-panel-splitter"></div>
     <div class="osc-graph-wrapper" id="osc-graph-wrapper">
-    <div id="osc-canvas-container"></div>
-</div>
+        <div id="osc-canvas-container"></div>
+    </div>
 </div>`;

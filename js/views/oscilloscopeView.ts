@@ -5,7 +5,7 @@ export function createOscilloscopeView(): HTMLElement {
     container.className = 'osc-container';
     container.innerHTML = OSCILLOSCOPE_TEMPLATE;
 
-    // === НОВОЕ: Генерация строк с 5 колонками внутри .osc-body ===
+    // Генерация строк с 5 колонками внутри .osc-body
     const renderLeftRows = () => {
         const model = (window as any).oscModel;
         if (!model) return;
@@ -18,8 +18,6 @@ export function createOscilloscopeView(): HTMLElement {
         model.rows.forEach((row: any) => {
             const rowDiv = document.createElement('div');
             rowDiv.className = 'osc-data-row';
-            
-            // Высота строки берется из модели, чтобы совпадать с высотой строки графика в PixiJS
             rowDiv.style.height = `${row.height}px`;
 
             const hexVal = row.signal.register.toString(16).toUpperCase().padStart(4, '0');
@@ -27,7 +25,6 @@ export function createOscilloscopeView(): HTMLElement {
                 ? row.signal.currentValue.toFixed(2) 
                 : row.signal.currentValue;
 
-            // Создаем 5 колонок
             rowDiv.innerHTML = `
                 <div class="col col-name" title="${row.signal.name}">${row.signal.name}</div>
                 <div class="col col-hex">${hexVal}</div>
@@ -41,10 +38,10 @@ export function createOscilloscopeView(): HTMLElement {
     };
 
     renderLeftRows();
-    // ================================================================
 
     const leftPanel = container.querySelector('#osc-left-panel') as HTMLElement;
     const panelSplitter = container.querySelector('#osc-panel-splitter') as HTMLElement;
+    const headerLeft = container.querySelector('.osc-main-header-left') as HTMLElement;
 
     panelSplitter.addEventListener('mousedown', (e: Event) => {
         const md = e as MouseEvent;
@@ -58,7 +55,7 @@ export function createOscilloscopeView(): HTMLElement {
 
         const doPanelDrag = (me: MouseEvent) => {
             finalWidth = Math.max(200, startWidth + (me.clientX - startX));
-            panelSplitter.style.transform = `translateX(${finalWidth - startWidth}px)`;
+            // УБРАНО: строка, которая двигала шапку в реальном времени
         };
 
         const stopPanelDrag = () => {
@@ -66,6 +63,10 @@ export function createOscilloscopeView(): HTMLElement {
             document.body.classList.remove('is-resizing');
             panelSplitter.style.transform = '';
             leftPanel.style.flex = `0 0 ${finalWidth}px`;
+            // Теперь шапка двигается только здесь, при отпускании мышки
+            if (headerLeft) {
+                headerLeft.style.flex = `0 0 ${finalWidth}px`;
+            }
             window.removeEventListener('mousemove', doPanelDrag);
             window.removeEventListener('mouseup', stopPanelDrag);
         };
