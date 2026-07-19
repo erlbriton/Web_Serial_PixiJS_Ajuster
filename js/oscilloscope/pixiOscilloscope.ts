@@ -13,49 +13,48 @@ export class PixiOscilloscope {
     private brightColors: number[];
     private app: any;
     private stageContainer: any;
-    private graphicsList: any[];
-    
+    private backgroundGraphics: any[] = [];
+    private waveformGraphics: any[] = [];
+
     private layout: ScopeLayout;
     private tableWrapper: HTMLElement | null = null;
     private containerElement: HTMLElement;
-    
+
     private scrollbarTrack: HTMLDivElement;
     private scrollbarThumb: HTMLDivElement;
     private isDraggingScrollbar: boolean = false;
     private scrollbarDragStartY: number = 0;
     private scrollbarDragStartScroll: number = 0;
-    
+
     private needsRedraw: boolean = true;
-    private lastBuffers: any[] | null = null;
+    private lastBuffers?: any[];
 
     constructor(containerId: string, model: MonitorModel) {
         const container = document.getElementById(containerId);
         if (!container) throw new Error(`Контейнер "${containerId}" не найден!`);
-        
+
         this.containerElement = container;
 
         const rect = container.getBoundingClientRect();
         this.width = rect.width || 800;
         this.height = rect.height || 600;
-        
+
         this.brightColors = [
             0x00FF00, 0x00FFFF, 0xFF00FF, 0xFFFF00, 0xFF4500,
             0x0099FF, 0xFF0088, 0xADFF2F, 0xFFFFFF, 0x7B68EE
         ];
 
-        // Инициализация PIXI с автостартом тикера
         // @ts-ignore
         this.app = new PIXI.Application({
-            width: this.width, 
-            height: this.height, 
-            backgroundColor: 0x000000, 
+            width: this.width,
+            height: this.height,
+            backgroundColor: 0x000000,
             antialias: true,
             autoStart: true
         });
         (this.app.view as HTMLCanvasElement).style.cssText = "width:100%;height:100%;display:block;";
         container.appendChild(this.app.view as HTMLCanvasElement);
 
-        // Создаем скроллбар
         this.scrollbarTrack = document.createElement('div');
         this.scrollbarTrack.style.cssText = 'position:absolute; right:2px; top:2px; bottom:2px; width:8px; background:rgba(255,255,255,0.1); border-radius:4px; z-index:50; cursor:pointer;';
         this.scrollbarThumb = document.createElement('div');
@@ -63,7 +62,6 @@ export class PixiOscilloscope {
         this.scrollbarTrack.appendChild(this.scrollbarThumb);
         container.appendChild(this.scrollbarTrack);
 
-        // Обработчики скроллбара
         this.scrollbarTrack.addEventListener('mousedown', (e: MouseEvent) => {
             this.isDraggingScrollbar = true;
             this.scrollbarDragStartY = e.clientY;
@@ -74,27 +72,27 @@ export class PixiOscilloscope {
 
         document.addEventListener('mousemove', (e: MouseEvent) => {
             if (!this.isDraggingScrollbar) return;
-            
+
             const model = (window as any).oscModel as MonitorModel;
             if (!model) return;
 
             const totalHeight = model.rows.reduce((sum: number, row: any) => sum + row.height, 0);
             const maxScroll = Math.max(0, totalHeight - this.height);
-            
+
             const deltaY = e.clientY - this.scrollbarDragStartY;
             const trackHeight = this.scrollbarTrack.offsetHeight;
             const scrollRatio = maxScroll / trackHeight;
-            
+
             this.scrollY = this.scrollbarDragStartScroll + (deltaY * scrollRatio);
             this.scrollY = Math.max(0, Math.min(this.scrollY, maxScroll));
-            
+
             this.stageContainer.y = -this.scrollY;
             this.updateScrollbar();
-            
+
             if (this.tableWrapper) {
                 this.tableWrapper.scrollTop = this.scrollY;
             }
-            
+
             this.needsRedraw = true;
         });
 
@@ -105,11 +103,10 @@ export class PixiOscilloscope {
             }
         });
 
-        // Синхронизация с таблицей
         const oscContainer = container.closest('.osc-container');
         if (oscContainer) {
             this.tableWrapper = oscContainer.querySelector('.osc-table-wrapper') as HTMLElement;
-            
+
             this.tableWrapper.addEventListener('scroll', () => {
                 this.scrollY = this.tableWrapper!.scrollTop;
                 this.stageContainer.y = -this.scrollY;
@@ -118,25 +115,26 @@ export class PixiOscilloscope {
             }, { passive: true });
         }
 
-        // Контейнер для графики
         // @ts-ignore
         this.stageContainer = new PIXI.Container();
         this.app.stage.addChild(this.stageContainer);
 
-        // Пул графики
-        this.graphicsList = [];
         for (let i = 0; i < 300; i++) {
             // @ts-ignore
-            const g = new PIXI.Graphics();
-            this.stageContainer.addChild(g);
-            this.graphicsList.push(g);
+            const bg = new PIXI.Graphics();
+            // @ts-ignore
+            const wave = new PIXI.Graphics();
+
+            this.stageContainer.addChild(bg);
+            this.stageContainer.addChild(wave);
+
+            this.backgroundGraphics.push(bg);
+            this.waveformGraphics.push(wave);
         }
 
-        // Инициализация Layout
         this.layout = new ScopeLayout();
         this.layout.recalculate(model);
 
-        // Добавляем тикер для плавной перерисовки
         this.app.ticker.add(() => {
             if (this.needsRedraw) {
                 this.draw(this.lastBuffers);
@@ -144,10 +142,9 @@ export class PixiOscilloscope {
             }
         });
 
-        // Обработчик колеса мыши
         container.addEventListener('wheel', (e: WheelEvent) => {
             e.preventDefault();
-            
+
             const currentModel = (window as any).oscModel as MonitorModel;
             if (!currentModel) return;
 
@@ -156,18 +153,17 @@ export class PixiOscilloscope {
 
             this.scrollY += e.deltaY * 1.5;
             this.scrollY = Math.max(0, Math.min(this.scrollY, maxScroll));
-            
+
             this.stageContainer.y = -this.scrollY;
             this.updateScrollbar();
-            
+
             if (this.tableWrapper) {
                 this.tableWrapper.scrollTop = this.scrollY;
             }
-            
+
             this.needsRedraw = true;
         }, { passive: false });
 
-        // Ресайз
         new ResizeObserver((entries) => {
             for (const entry of entries) {
                 const { width, height } = entry.contentRect;
@@ -180,7 +176,6 @@ export class PixiOscilloscope {
             }
         }).observe(container);
 
-        // Первая отрисовка
         this.needsRedraw = true;
     }
 
@@ -194,17 +189,17 @@ export class PixiOscilloscope {
         if (!model) return;
 
         const totalHeight = model.rows.reduce((sum: number, row: any) => sum + row.height, 0);
-        
+
         if (totalHeight <= this.height) {
             this.scrollbarTrack.style.display = 'none';
             return;
         }
         this.scrollbarTrack.style.display = 'block';
-        
+
         const thumbHeight = Math.max(20, (this.height / totalHeight) * this.height);
         const maxTop = this.height - thumbHeight;
         const thumbTop = (this.scrollY / (totalHeight - this.height)) * maxTop;
-        
+
         this.scrollbarThumb.style.height = `${thumbHeight}px`;
         this.scrollbarThumb.style.top = `${thumbTop}px`;
     }
@@ -213,7 +208,7 @@ export class PixiOscilloscope {
         if (buffers) {
             this.lastBuffers = buffers;
         }
-        
+
         const model = (window as any).oscModel as MonitorModel;
         if (!model) return;
 
@@ -222,39 +217,47 @@ export class PixiOscilloscope {
         let visibleIndex = 0;
 
         for (const rowGeom of visibleRows) {
-            const g = this.graphicsList[visibleIndex];
-            if (!g) break;
+            const bg = this.backgroundGraphics[visibleIndex];
+            const wave = this.waveformGraphics[visibleIndex];
 
-            const data = this.lastBuffers && this.lastBuffers[rowGeom.channelIndex] 
-                ? this.lastBuffers[rowGeom.channelIndex].getLinearData() 
+            if (!bg || !wave) break;
+
+            const data = this.lastBuffers && this.lastBuffers[rowGeom.channelIndex]
+                ? this.lastBuffers[rowGeom.channelIndex].getLinearData()
                 : null;
 
             if (data && data.length > 1) {
-                g.visible = true;
-                g.clear();
-                
-                g.beginFill(0x1a1a1a);
-                g.drawRect(0, rowGeom.y, this.width, rowGeom.height);
-                g.endFill();
-                
-                g.lineStyle(1, 0x555555, 1);
-                g.moveTo(0, rowGeom.y + rowGeom.height - 1);
-                g.lineTo(this.width, rowGeom.y + rowGeom.height - 1);
-                
-                this.drawWaveform(g, data, rowGeom, false);
+                bg.visible = true;
+                wave.visible = true;
+
+                bg.clear();
+                wave.clear();
+
+                bg.beginFill(0x1a1a1a);
+                bg.drawRect(0, rowGeom.y, this.width, rowGeom.height);
+                bg.endFill();
+
+                // Яркая линия, совпадающая с CSS
+                bg.lineStyle(1, 0x888888, 1);
+                bg.moveTo(0, rowGeom.y + rowGeom.height - 1);
+                bg.lineTo(this.width, rowGeom.y + rowGeom.height - 1);
+
+                this.drawWaveform(wave, data, rowGeom, false);
             } else {
-                g.visible = false;
+                bg.visible = false;
+                wave.visible = false;
             }
             visibleIndex++;
         }
 
-        for (let j = visibleIndex; j < this.graphicsList.length; j++) {
-            this.graphicsList[j].visible = false;
+        for (let j = visibleIndex; j < this.backgroundGraphics.length; j++) {
+            this.backgroundGraphics[j].visible = false;
+            this.waveformGraphics[j].visible = false;
         }
     }
 
     private drawWaveform(g: any, dataRaw: Float32Array | number[], geom: RowGeometry, isDiscrete: boolean): void {
-        const data = Array.from(dataRaw); 
+        const data = Array.from(dataRaw);
         const { y, height } = geom;
         const gridSpacing = 50;
         const timePhasePx = ((Date.now() % 1000) / 1000) * gridSpacing;
@@ -271,7 +274,7 @@ export class PixiOscilloscope {
         if (isDiscrete) {
             let segStartVal = data[data.length - 1];
             let segStartX = this.width;
-            
+
             const drawSeg = (x1: number, x2: number, val: number) => {
                 if (x1 <= x2) return;
                 if (val !== 0) {
@@ -308,7 +311,7 @@ export class PixiOscilloscope {
                 if (x < 0) break;
                 const val = (data[data.length - 1 - j] / 1100) * (height - 4);
                 const py = y + (height - 2 - val);
-                if (!started) { g.moveTo(x, py); started = true; } 
+                if (!started) { g.moveTo(x, py); started = true; }
                 else { g.lineTo(x, py); }
             }
         }
@@ -324,12 +327,42 @@ export class PixiOscilloscope {
         }
     }
 
+    // === ИЗМЕНЕННЫЙ МЕТОД ===
     updateRows(rowCount?: number, types?: string[]): void {
         const model = (window as any).oscModel as MonitorModel;
         if (model) {
             this.layout.recalculate(model);
             this.needsRedraw = true;
             console.log(`✅ DEBUG: updateRows вызван через мостик. Строк в модели: ${model.rowCount}`);
+
+            // === НОВОЕ: Генерация HTML строк для левой панели при загрузке данных ===
+            const bodyContainer = document.querySelector('#osc-grid-body') as HTMLElement;
+            if (bodyContainer) {
+                bodyContainer.innerHTML = ''; // Очищаем контейнер (на случай если file-loader вставил туда что-то старое)
+                
+                model.rows.forEach((row: any) => {
+                    const rowDiv = document.createElement('div');
+                    rowDiv.className = 'osc-data-row';
+                    // Высота строки берется из модели, чтобы совпадать с графиком
+                    rowDiv.style.height = `${row.height}px`;
+
+                    const hexVal = row.signal.register.toString(16).toUpperCase().padStart(4, '0');
+                    const physVal = typeof row.signal.currentValue === 'number' 
+                        ? row.signal.currentValue.toFixed(2) 
+                        : row.signal.currentValue;
+
+                    rowDiv.innerHTML = `
+                        <div class="col col-name" title="${row.signal.name}">${row.signal.name}</div>
+                        <div class="col col-hex">${hexVal}</div>
+                        <div class="col col-phys">${physVal}</div>
+                        <div class="col col-unit">${row.signal.unit}</div>
+                        <div class="col col-graph"></div>
+                    `;
+                    bodyContainer.appendChild(rowDiv);
+                });
+            }
+            // ================================================================
+
         } else {
             console.warn('⚠️ updateRows вызван, но oscModel еще не создан');
         }

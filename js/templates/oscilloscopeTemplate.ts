@@ -10,21 +10,22 @@ export const OSCILLOSCOPE_TEMPLATE = `
 
 <div class="osc-main-area">
     <div class="osc-table-wrapper" id="osc-left-panel">
-        <table class="osc-data-grid">
-            <colgroup>
-                <col class="col-name"><col class="col-hex"><col class="col-phys"><col class="col-unit">
-            </colgroup>
-            <thead>
-                <tr>
-                    <th class="header-cell">Name</th>
-                    <th class="header-cell">Hex</th>
-                    <th class="header-cell">Physical</th>
-                    <th class="header-cell">Unit</th>
-                </tr>
-            </thead>
-            <tbody id="osc-grid-body"></tbody>
-        </table>
+
+    <div class="osc-header">
+
+        <div class="c-name">Name</div>
+        <div class="c-hex">Hex</div>
+        <div class="c-phys">Physical</div>
+        <div class="c-unit">Unit</div>
+
     </div>
+
+    <div
+        id="osc-grid-body"
+        class="osc-body">
+    </div>
+
+</div>
     <div class="osc-main-splitter" id="osc-panel-splitter"></div>
     <div class="osc-graph-wrapper" id="osc-graph-wrapper">
         <div class="osc-canvas-header">Graph</div>

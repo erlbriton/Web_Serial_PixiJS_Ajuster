@@ -7,6 +7,7 @@ import { MonitorRow } from './model/monitorRow.js';
 import { MonitorSignal } from './model/monitorSignal.js';
 import { RingBuffer } from './oscilloscope/ringBuffer.js';
 import { PixiOscilloscope } from './oscilloscope/pixiOscilloscope.js';
+import { createOscilloscopeView } from './views/oscilloscopeView.js';
 import { updateDeviceRegisters as realUpdateDeviceRegisters } from './serial/device_updater.js';
 import { 
     serialManager, 
@@ -54,6 +55,18 @@ document.addEventListener('DOMContentLoaded', () => {
     
     (window as any).oscModel = initialModel;
     console.log(`✅ DEBUG: Начальная MonitorModel создана. Строк: ${initialModel.rowCount}`);
+
+    // === СОЗДАНИЕ ЛЕВОЙ ПАНЕЛИ ОСЦИЛЛОГРАФА ===
+    const oscContainer = document.getElementById('osc-container');
+    if (oscContainer) {
+        oscContainer.innerHTML = '';
+        const oscViewElement = createOscilloscopeView();
+        oscContainer.appendChild(oscViewElement);
+        console.log("✅ DEBUG: Осциллограф (левая панель + графики) добавлен в DOM");
+    } else {
+        console.error("❌ ERROR: Элемент #osc-container не найден в HTML!");
+    }
+    // ===========================================
 
     let canvasContainer = document.getElementById('osc-canvas-container');
     if (!canvasContainer) {
@@ -104,10 +117,7 @@ document.addEventListener('DOMContentLoaded', () => {
         getInfo() { return this.port ? this.port.getInfo() : {}; }
     };
 
-            // ==========================================
-    // РЕСАЙЗ ПРАВОЙ ТАБЛИЦЫ (.modbus-grid) ЧЕРЕЗ <COLGROUP>
-    // ==========================================
-        (window as any).initTableResizers = () => {
+    (window as any).initTableResizers = () => {
         const table = document.querySelector('.modbus-grid') as HTMLTableElement;
         if (!table) return;
 
@@ -120,7 +130,6 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const headers = lastHeaderRow.querySelectorAll('th') as NodeListOf<HTMLElement>;
         
-        // Очищаем старые
         table.querySelectorAll('.table-resizer').forEach(el => el.remove());
         
         headers.forEach((th, idx) => {
@@ -163,7 +172,7 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     };
-    // ==========================================
+
     initUI({
         serial: serialAdapter,
         appState, 
