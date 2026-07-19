@@ -4,17 +4,17 @@
 
 .table-wrapper {
     flex: 1;
-    overflow: auto; /* Включаем оба скролла сразу */
+    overflow: auto;
     background-color: #ffffff;
     border: 1px solid #7b7b7b;
-    /* Убираем отступ сверху, оставляем остальные */
     margin: 2px 10px 10px 10px; 
     position: relative;
 }
 
 .modbus-grid {
-    table-layout: fixed; /* ВЕРНУЛИ FIXED: это критично для работы JS-ресайзера */
-    width: 100%;         
+    table-layout: fixed !important;
+    width: 100% !important;
+    min-width: 100%;
     border-collapse: separate; 
     border-spacing: 0;         
     font-size: 12px;
@@ -33,6 +33,7 @@
     box-sizing: border-box;
     overflow: hidden;
     text-overflow: ellipsis;
+    background-clip: padding-box;
 }
 
 .modbus-grid th:first-child,
@@ -49,30 +50,27 @@
 }
 
 /* =================================================================
-   ФИКСАЦИЯ ШАПКИ
+   ФИКСАЦИЯ ШАПКИ (ИСПРАВЛЕНО: убираем ТОЛЬКО border-top)
    ================================================================= */
 
 .modbus-grid thead th {
     position: sticky;
-    background-color: #a8a7a7; 
-    z-index: 10; /* Увеличили Z-index */
+    z-index: 10;
+    background-color: #a8a7a7;
 }
 
 .modbus-grid thead tr:nth-child(1) th {
     top: 0;
     z-index: 11;
     background-color: #dbdada;
+    border-bottom: 1px solid #000000;
 }
 
-/* ИЗМЕНЕНО: top уменьшен до 26px, чтобы убрать зазор между рядами шапки */
 .modbus-grid thead tr:nth-child(2) th {
     top: 26px;
     z-index: 10;
-}
-
-/* РАМКА ДЛЯ ВСЕЙ СТРОКИ "ПАРАМЕТРЫ" (второй ряд шапки) */
-.modbus-grid thead tr:nth-child(2) th {
-    border-top: 1px solid #000000;
+    background-color: #a8a7a7;
+    border-top: none !important; /* Убираем ТОЛЬКО это - это убирает щель! */
     border-bottom: 1px solid #000000;
 }
 
@@ -85,24 +83,28 @@
 }
 
 /* =================================================================
-   РЕСАЙЗЕРЫ (Сделали их активными поверх всего)
+   РЕСАЙЗЕРЫ
    ================================================================= */
+
+th {
+    position: relative;
+}
 
 .table-resizer {
     position: absolute;
     top: 0;
-    right: -4px; 
+    right: -4px;
     width: 8px; 
-    height: 100%; /* Ресайзер теперь на всю высоту шапки */
+    height: 100%;
     cursor: col-resize;
     user-select: none;
     background-color: transparent;
-    z-index: 100; /* Поверх sticky-шапки */
+    z-index: 100;
     pointer-events: auto;
 }
 
 .modbus-grid thead tr:nth-child(2) .table-resizer {
-    height: 24px; /* Корректируем высоту ресайзера, чтобы не перекрывал рамку */
+    height: 24px;
 }
 
 .table-resizer:hover, 
@@ -110,19 +112,16 @@
     background-color: #0055ff !important;
 }
 
-/* Выделение строки */
 .modbus-grid tbody tr.is-selected,
 .modbus-grid tbody tr.is-selected td {
     background-color: rgba(0, 255, 0, 0.2) !important;
 }
 
-/* Глобальное состояние загрузки */
 .loading-state {
     cursor: wait !important;
-    pointer-events: none; /* Блокирует клики на всем, пока идет загрузка */
+    pointer-events: none;
 }
 
-/* Визуальный индикатор (вращающееся колечко) */
 .loading-state::after {
     content: "";
     position: fixed;
@@ -144,22 +143,6 @@
     100% { transform: rotate(360deg); }
 }
 
-.table-resizer {
-    position: absolute;
-    top: 0;
-    right: 0;
-    width: 5px;        /* Ширина захвата */
-    height: 100%;       /* Растянуть на всю высоту заголовка */
-    cursor: col-resize; /* Меняет курсор на стрелочки */
-    z-index: 1000;      /* Чтобы был поверх всего */
-    background: transparent; /* Или red, чтобы увидеть их физически */
-}
-
-/* Обязательно для родителя, чтобы absolute позиционирование работало */
-th {
-    position: relative;
-}
-
 .sidebar-resizer {
     width: 5px;
     height: 100%;
@@ -168,38 +151,4 @@ th {
     top: 0;
     cursor: col-resize;
     z-index: 1000;
-}
-
-/* === ФИКС РЕСАЙЗА ПРАВОЙ ТАБЛИЦЫ (ТОЛЬКО .modbus-grid) === */
-.modbus-grid {
-    table-layout: fixed !important;
-    width: auto !important; /* Позволяет таблице расширяться за пределы контейнера при ресайзе */
-    min-width: 100%;
-}
-
-/* Снимаем блокировку ширины с внутренних элементов ячеек, если она там есть */
-.modbus-grid td *, 
-.modbus-grid th * {
-    max-width: 100%;
-}
-
-/* === ФИКС РЕСАЙЗА ПРАВОЙ ТАБЛИЦЫ (.modbus-grid) === */
-.modbus-grid {
-    table-layout: fixed !important;
-    width: auto !important; /* Критично: позволяет таблице стать шире контейнера при ресайзе */
-    min-width: 100% !important;
-}
-
-.modbus-grid th, 
-.modbus-grid td {
-    box-sizing: border-box !important;
-    overflow: hidden !important;
-    white-space: nowrap !important;
-}
-
-/* Сброс любых внутренних блокировок ширины внутри ячеек */
-.modbus-grid th *, 
-.modbus-grid td * {
-    max-width: 100% !important;
-    box-sizing: border-box !important;
 }

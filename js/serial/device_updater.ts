@@ -48,7 +48,7 @@ export async function updateDeviceRegisters(
   appState: AppState | null = null,
 ): Promise<boolean> {
 
-console.log("[Updater] Функция updateDeviceRegisters запущена");
+  console.log("[Updater] Функция updateDeviceRegisters запущена");
 
   if (isUpdating) return false;
 
@@ -101,7 +101,7 @@ console.log("[Updater] Функция updateDeviceRegisters запущена");
         end: uniqueAddresses[0],
         regs: [uniqueAddresses[0]],
       };
-      
+
       for (let i = 1; i < uniqueAddresses.length; i++) {
         const nextAddr = uniqueAddresses[i];
         const gap = nextAddr - currentBatch.end - 1;
@@ -126,7 +126,7 @@ console.log("[Updater] Функция updateDeviceRegisters запущена");
         (count >> 8) & 0xff,
         count & 0xff,
       ]);
-      
+
       const crc = calculateCRC(body);
       const finalPacket = new Uint8Array(8);
       finalPacket.set(body, 0);
@@ -175,7 +175,8 @@ console.log("[Updater] Функция updateDeviceRegisters запущена");
                     const key = tr.getAttribute("data-key") || "";
 
                     let originalHexLen = 4;
-                    if (parts[hIdx] && parts[hIdx].startsWith("x")) {
+                    // БЕЗОПАСНАЯ ПРОВЕРКА: предотвращает ошибку TypeError, если parts пуст или hIdx вне диапазона
+                    if (parts && Array.isArray(parts) && parts[hIdx] && typeof parts[hIdx] === 'string' && parts[hIdx].startsWith("x")) {
                       originalHexLen = parts[hIdx].slice(1).length;
                     }
 
@@ -192,7 +193,7 @@ console.log("[Updater] Функция updateDeviceRegisters запущена");
                         }
                       }
                     }
-                    
+
                     const valH = reply[3 + i * 2];
                     const valL = reply[4 + i * 2];
                     const word = (valH << 8) | valL;
