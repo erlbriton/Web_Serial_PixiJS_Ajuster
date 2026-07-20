@@ -242,7 +242,11 @@ export class PixiOscilloscope {
                 bg.moveTo(0, rowGeom.y + rowGeom.height - 1);
                 bg.lineTo(this.width, rowGeom.y + rowGeom.height - 1);
 
-                this.drawWaveform(wave, data, rowGeom, false);
+                // Определяем, является ли текущий канал дискретным (TBit)
+                const currentRow = model.rows[rowGeom.channelIndex];
+                const isDiscrete = currentRow && String(currentRow.signal.dataType || '').trim() === 'TBit';
+
+                this.drawWaveform(wave, data, rowGeom, isDiscrete);
             } else {
                 bg.visible = false;
                 wave.visible = false;
@@ -340,26 +344,33 @@ export class PixiOscilloscope {
             if (bodyContainer) {
                 bodyContainer.innerHTML = ''; // Очищаем контейнер (на случай если file-loader вставил туда что-то старое)
                 
-                model.rows.forEach((row: any) => {
-                    const rowDiv = document.createElement('div');
-                    rowDiv.className = 'osc-data-row';
-                    // Высота строки берется из модели, чтобы совпадать с графиком
-                    rowDiv.style.height = `${row.height}px`;
+               model.rows.forEach((row: any) => {
+    const rowDiv = document.createElement('div');
+    rowDiv.className = 'osc-data-row';
+    rowDiv.style.height = `${row.height}px`;
 
-                    const hexVal = row.signal.register.toString(16).toUpperCase().padStart(4, '0');
-                    const physVal = typeof row.signal.currentValue === 'number' 
-                        ? row.signal.currentValue.toFixed(2) 
-                        : row.signal.currentValue;
+    // Проверка на TBit
+    const isTBit = String(row.signal.dataType || '').trim() === 'TBit';
+    
+    // Для TBit: Hex = currentValue (0/1 в 16-ричном виде), Physical = пусто
+    // Для остальных: Hex = register, Physical = currentValue
+    const hexVal = isTBit 
+        ? Number(row.signal.currentValue || 0).toString(16).toUpperCase().padStart(4, '0')
+        : row.signal.register.toString(16).toUpperCase().padStart(4, '0');
+    
+    const physVal = isTBit 
+        ? '' 
+        : (typeof row.signal.currentValue === 'number' ? row.signal.currentValue.toFixed(2) : String(row.signal.currentValue));
 
-                    rowDiv.innerHTML = `
-                        <div class="col col-name" title="${row.signal.name}">${row.signal.name}</div>
-                        <div class="col col-hex">${hexVal}</div>
-                        <div class="col col-phys">${physVal}</div>
-                        <div class="col col-unit">${row.signal.unit}</div>
-                        <div class="col col-graph"></div>
-                    `;
-                    bodyContainer.appendChild(rowDiv);
-                });
+    rowDiv.innerHTML = `
+        <div class="col col-name" title="${row.signal.name}">${row.signal.name}</div>
+        <div class="col col-hex">${hexVal}</div>
+        <div class="col col-phys">${physVal}</div>
+        <div class="col col-unit">${isTBit ? '' : row.signal.unit}</div>
+        <div class="col col-graph"></div>
+    `;
+    bodyContainer.appendChild(rowDiv);
+});
             }
             // ================================================================
 

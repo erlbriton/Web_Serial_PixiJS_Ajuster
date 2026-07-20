@@ -350,18 +350,18 @@ function handleValidPacket(
                     ? physicalValue.toString() 
                     : physicalValue.toFixed(mapEntry.decimals);
 
-                const hexEl = document.getElementById(`param-hex-${i}`);
-                if (hexEl) hexEl.textContent = hexString;
+                // const hexEl = document.getElementById(`param-hex-${i}`);
+                // if (hexEl) hexEl.textContent = hexString;
 
-                const physEl = document.getElementById(`param-phys-${i}`);
-                if (physEl) physEl.textContent = formattedPhysical;
+                // const physEl = document.getElementById(`param-phys-${i}`);
+                // if (physEl) physEl.textContent = formattedPhysical;
 
-                // Обновление текстового содержимого внутренних div-контейнеров таблицы осциллографа
-                const oscHexEl = document.getElementById(`osc-hex-${i}`);
-                if (oscHexEl) oscHexEl.textContent = hexString;
+                // // Обновление текстового содержимого внутренних div-контейнеров таблицы осциллографа
+                // const oscHexEl = document.getElementById(`osc-hex-${i}`);
+                // if (oscHexEl) oscHexEl.textContent = hexString;
 
-                const oscPhysEl = document.getElementById(`osc-phys-${i}`);
-                if (oscPhysEl) oscPhysEl.textContent = formattedPhysical;
+                // const oscPhysEl = document.getElementById(`osc-phys-${i}`);
+                // if (oscPhysEl) oscPhysEl.textContent = formattedPhysical;
             }
         } else {
             buffers[i]?.push(0);

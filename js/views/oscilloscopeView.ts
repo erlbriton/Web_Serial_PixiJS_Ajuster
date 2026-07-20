@@ -40,24 +40,36 @@ export function createOscilloscopeView(): HTMLElement {
             const rowDiv = document.createElement('div');
             rowDiv.className = 'osc-data-row';
             rowDiv.style.height = `${row.height}px`;
-///////////////////////////////////////////////////////////
-                                                // Временно выводим тип параметра прямо в колонку Unit для проверки
-                        rowDiv.innerHTML = `
+
+            // ОДНО объявление isTBit на строку (дубликаты удалены)
+            const isTBit = String(row.signal.dataType || '').trim() === 'TBit';
+            
+            // Hex: для TBit берем live-значение (0 или 1), для остальных - адрес регистра
+            const hexVal = isTBit 
+                ? Number(row.signal.currentValue || 0).toString(16).toUpperCase().padStart(4, '0')
+                : row.signal.register.toString(16).toUpperCase().padStart(4, '0');
+            
+            // Physical: для TBit пусто, для остальных - live-значение
+            const physVal = isTBit 
+                ? '' 
+                : (typeof row.signal.currentValue === 'number' ? row.signal.currentValue.toFixed(2) : String(row.signal.currentValue));
+
+            rowDiv.innerHTML = `
                 <div class="col col-name" title="${row.signal.name}">${row.signal.name}</div>
-                <div class="col col-hex">${row.signal.register.toString(16).toUpperCase().padStart(4, '0')}</div>
-                <div class="col col-phys">${typeof row.signal.currentValue === 'number' ? row.signal.currentValue.toFixed(2) : row.signal.currentValue}</div>
-                <div class="col col-unit">${row.signal.dataType === 'TBit' ? '' : row.signal.unit}</div>
+                <div class="col col-hex">${hexVal}</div>
+                <div class="col col-phys">${physVal}</div>
+                <div class="col col-unit">${isTBit ? '' : row.signal.unit}</div>
                 <div class="col col-graph"></div>
             `;
             
             bodyContainer.appendChild(rowDiv);
-        });/////////////////////////////////////////////////////
+        });
     };
 
     renderLeftRows();
     applyWidths(); // Применяем начальные ширины
 
-    // Сплиттер основной панели (оставляем как есть — он уже работает по нужному принципу)
+    // Сплиттер основной панели
     const leftPanel = container.querySelector('#osc-left-panel') as HTMLElement;
     const panelSplitter = container.querySelector('#osc-panel-splitter') as HTMLElement;
 
