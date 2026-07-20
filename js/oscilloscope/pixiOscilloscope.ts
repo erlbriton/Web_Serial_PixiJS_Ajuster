@@ -214,7 +214,8 @@ export class PixiOscilloscope {
 
         const visibleRows = this.layout.getVisibleRows(this.scrollY, this.height);
 
-        let visibleIndex = 0;
+                let visibleIndex = 0;
+        let discreteCounter = 0; // Счетчик для чередования цветов дискретных параметров
 
         for (const rowGeom of visibleRows) {
             const bg = this.backgroundGraphics[visibleIndex];
@@ -246,7 +247,16 @@ export class PixiOscilloscope {
                 const currentRow = model.rows[rowGeom.channelIndex];
                 const isDiscrete = currentRow && String(currentRow.signal.dataType || '').trim() === 'TBit';
 
-                this.drawWaveform(wave, data, rowGeom, isDiscrete);
+                // Выбираем цвет: для дискретных чередуем голубой (0x56CCF2) и коричневый (0x8B4513)
+                const waveColor = isDiscrete 
+                    ? ((discreteCounter % 2 === 0) ? 0x56CCF2 : 0x8B4513) 
+                    : this.brightColors[rowGeom.channelIndex % 10];
+                
+                if (isDiscrete) {
+                    discreteCounter++;
+                }
+
+                this.drawWaveform(wave, data, rowGeom, isDiscrete, waveColor);
             } else {
                 bg.visible = false;
                 wave.visible = false;
@@ -260,7 +270,7 @@ export class PixiOscilloscope {
         }
     }
 
-    private drawWaveform(g: any, dataRaw: Float32Array | number[], geom: RowGeometry, isDiscrete: boolean): void {
+        private drawWaveform(g: any, dataRaw: Float32Array | number[], geom: RowGeometry, isDiscrete: boolean, color: number): void {
         const data = Array.from(dataRaw);
         const { y, height } = geom;
         const gridSpacing = 50;
@@ -273,7 +283,7 @@ export class PixiOscilloscope {
             g.lineTo(x, y + height - 1);
         }
 
-        const color = isDiscrete ? 0x56CCF2 : this.brightColors[geom.channelIndex % 10];
+        // Цвет теперь передается как аргумент, удаляем старое определение 'const color'
 
         if (isDiscrete) {
             let segStartVal = data[data.length - 1];
@@ -283,12 +293,12 @@ export class PixiOscilloscope {
                 if (x1 <= x2) return;
                 if (val !== 0) {
                     g.lineStyle(0);
-                    g.beginFill(color, 1);
+                    g.beginFill(color, 1); // Используем переданный чередующийся цвет
                     const h = Math.max(4, height - 6);
                     g.drawRect(x2, y + (height - h) / 2, x1 - x2, h);
                     g.endFill();
                 } else {
-                    g.lineStyle(1.5, color, 1);
+                    g.lineStyle(1.5, color, 1); // Используем переданный чередующийся цвет
                     g.moveTo(x1, y + height - 3);
                     g.lineTo(x2, y + height - 3);
                 }
