@@ -29,6 +29,8 @@ export class PixiOscilloscope {
     private needsRedraw: boolean = true;
     private lastBuffers?: any[];
     private maxValues: number[] = [];
+    private highlighter: HTMLDivElement;
+    private selectedRow: HTMLElement | null = null; // Добавили для отслеживания выбранной строки
 
     constructor(containerId: string, model: MonitorModel) {
         const container = document.getElementById(containerId);
@@ -113,6 +115,21 @@ export class PixiOscilloscope {
                 this.stageContainer.y = -this.scrollY;
                 this.updateScrollbar();
                 this.needsRedraw = true;
+                
+                // Пересчитываем позицию подсветки при скролле
+                if (this.highlighter && this.selectedRow) {
+                    const rowRect = this.selectedRow.getBoundingClientRect();
+                    const containerRect = this.containerElement.getBoundingClientRect();
+                    const top = rowRect.top - containerRect.top;
+                    
+                    // Проверяем, видна ли строка
+                    if (top >= 0 && top < this.height) {
+                        this.highlighter.style.display = 'block';
+                        this.highlighter.style.top = `${top}px`;
+                    } else {
+                        this.highlighter.style.display = 'none';
+                    }
+                }
             }, { passive: true });
         }
 
@@ -176,6 +193,65 @@ export class PixiOscilloscope {
                 }
             }
         }).observe(container);
+
+        // Создаем слой для подсветки всей строки
+                // Создаем слой для подсветки всей строки
+        this.highlighter = document.createElement('div');
+        this.highlighter.style.cssText = 'position:absolute; left:0; width:100%; background-color:rgba(152, 251, 152, 0.4); pointer-events:none; z-index:5; display:none;';
+        container.appendChild(this.highlighter);
+
+        // Обработчик клика на область графиков (canvas)
+                // Обработчик клика на область графиков (canvas)
+        (this.app.view as HTMLCanvasElement).addEventListener('click', (e: MouseEvent) => {
+            const canvasRect = (this.app.view as HTMLCanvasElement).getBoundingClientRect();
+            const clickY = e.clientY - canvasRect.top;
+            
+            // Вычисляем, на какую строку кликнули (с учётом прокрутки)
+            const model = (window as any).oscModel as MonitorModel;
+            if (!model) return;
+            
+            const absoluteClickY = clickY + this.scrollY; // Абсолютная координата в модели
+            let currentY = 0;
+            let clickedRowIndex = -1;
+            
+            for (let i = 0; i < model.rows.length; i++) {
+                const rowHeight = model.rows[i].height;
+                if (absoluteClickY >= currentY && absoluteClickY < currentY + rowHeight) {
+                    clickedRowIndex = i;
+                    break;
+                }
+                currentY += rowHeight;
+            }
+            
+            if (clickedRowIndex >= 0) {
+                // Находим соответствующий rowDiv в левой панели
+                const allRows = document.querySelectorAll('#osc-grid-body .osc-data-row');
+                if (allRows[clickedRowIndex]) {
+                    const rowDiv = allRows[clickedRowIndex] as HTMLElement;
+                    
+                    // Снимаем выделение со всех строк
+                    allRows.forEach((row: Element) => {
+                        const el = row as HTMLElement;
+                        el.classList.remove('selected');
+                    });
+                    
+                    rowDiv.classList.add('selected');
+                    this.selectedRow = rowDiv;
+
+                    // Вычисляем позицию строки относительно контейнера осциллографа
+                    const rowRect = rowDiv.getBoundingClientRect();
+                    const containerRect = this.containerElement.getBoundingClientRect();
+                    
+                    const top = rowRect.top - containerRect.top;
+                    const height = rowRect.height;
+                    
+                    // Двигаем и показываем слой подсветки
+                    this.highlighter.style.display = 'block';
+                    this.highlighter.style.top = `${top}px`;
+                    this.highlighter.style.height = `${height}px`;
+                }
+            }
+        });
 
         this.needsRedraw = true;
     }
@@ -414,6 +490,32 @@ const val = (data[data.length - 1 - j] / maxVal) * (height - 4);
         <div class="col col-unit">${isTBit ? '' : row.signal.unit}</div>
         <div class="col col-graph"></div>
     `;
+
+    // Обработчик клика для выделения строки светло-зеленым цветом
+    rowDiv.addEventListener('click', () => {
+        // Снимаем выделение со всех строк
+        const allRows = bodyContainer.querySelectorAll('.osc-data-row');
+        allRows.forEach((row: Element) => {
+            const el = row as HTMLElement;
+            el.classList.remove('selected');
+        });
+        
+        rowDiv.classList.add('selected');
+        this.selectedRow = rowDiv;
+
+        // Вычисляем позицию строки относительно контейнера осциллографа
+        const rowRect = rowDiv.getBoundingClientRect();
+        const containerRect = this.containerElement.getBoundingClientRect();
+        
+        const top = rowRect.top - containerRect.top;
+        const height = rowRect.height;
+        
+        // Двигаем и показываем слой подсветки
+        this.highlighter.style.display = 'block';
+        this.highlighter.style.top = `${top}px`;
+        this.highlighter.style.height = `${height}px`;
+    });
+
     bodyContainer.appendChild(rowDiv);
 });
             }
