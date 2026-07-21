@@ -132,7 +132,6 @@
     font-size: 12px !important;
     color: #aab1ca;
     box-sizing: border-box;
-    border-bottom: 1px solid #888888 !important; 
 }
 
 .osc-data-row:hover {
@@ -146,7 +145,6 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: clip;
-    border-right: 1px solid #333;
     height: 100%;
     box-sizing: border-box;
 }
@@ -314,12 +312,13 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 24px;
-    height: 24px;
+    width: 18px;
+    height: 18px;
     border: 1px solid currentColor;
     font-weight: bold;
-    font-size: 16px;
+    font-size: 12px;
     font-family: 'Courier New', monospace;
     background: transparent;
     color: inherit;
+    box-sizing: border-box;
 }
