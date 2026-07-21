@@ -28,6 +28,7 @@ export class PixiOscilloscope {
 
     private needsRedraw: boolean = true;
     private lastBuffers?: any[];
+    private maxValues: number[] = [];
 
     constructor(containerId: string, model: MonitorModel) {
         const container = document.getElementById(containerId);
@@ -204,6 +205,29 @@ export class PixiOscilloscope {
         this.scrollbarThumb.style.top = `${thumbTop}px`;
     }
 
+        private calculateMaxValues(buffers: any[]): void {
+        for (let i = 0; i < buffers.length; i++) {
+            const buffer = buffers[i];
+            if (!buffer) {
+                this.maxValues[i] = 1100; // Значение по умолчанию
+                continue;
+            }
+
+            const data = buffer.getLinearData();
+            let maxVal = 0;
+            
+            for (let j = 0; j < data.length; j++) {
+                const absVal = Math.abs(data[j]);
+                if (absVal > maxVal) {
+                    maxVal = absVal;
+                }
+            }
+
+            // Если максимум слишком маленький, используем минимальное значение
+            this.maxValues[i] = maxVal < 10 ? 1100 : maxVal;
+        }
+    }
+
     draw(buffers?: any[]): void {
         if (buffers) {
             this.lastBuffers = buffers;
@@ -213,6 +237,9 @@ export class PixiOscilloscope {
         if (!model) return;
 
         const visibleRows = this.layout.getVisibleRows(this.scrollY, this.height);
+        if (this.lastBuffers) {
+            this.calculateMaxValues(this.lastBuffers);
+        }
 
                 let visibleIndex = 0;
         let discreteCounter = 0; // Счетчик для чередования цветов дискретных параметров
@@ -323,7 +350,8 @@ export class PixiOscilloscope {
             for (let j = 0; j < data.length; j++) {
                 const x = this.width - (j * 2);
                 if (x < 0) break;
-                const val = (data[data.length - 1 - j] / 1100) * (height - 4);
+                const maxVal = this.maxValues[geom.channelIndex] || 1100;
+const val = (data[data.length - 1 - j] / maxVal) * (height - 4);
                 const py = y + (height - 2 - val);
                 if (!started) { g.moveTo(x, py); started = true; }
                 else { g.lineTo(x, py); }
