@@ -420,15 +420,23 @@ export class PixiOscilloscope {
             const finalX = this.width - (data.length * 2);
             if (finalX > 0) drawSeg(segStartX, finalX, segStartVal);
 
-        } else {
-            g.lineStyle(1, color, 0.9);
+                } else {
             let started = false;
             for (let j = 0; j < data.length; j++) {
                 const x = this.width - (j * 2);
                 if (x < 0) break;
+                
                 const maxVal = this.maxValues[geom.channelIndex] || 1100;
-const val = (data[data.length - 1 - j] / maxVal) * (height - 4);
+                const rawVal = data[data.length - 1 - j];
+                const absVal = Math.abs(rawVal);
+                
+                // Определяем цвет по знаку: красный для отрицательных, исходный для положительных
+                const lineColor = rawVal < 0 ? 0xFF0000 : color;
+                
+                const val = (absVal / maxVal) * (height - 4);
                 const py = y + (height - 2 - val);
+                
+                g.lineStyle(1, lineColor, 0.9);
                 if (!started) { g.moveTo(x, py); started = true; }
                 else { g.lineTo(x, py); }
             }
