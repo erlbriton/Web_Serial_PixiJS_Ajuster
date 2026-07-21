@@ -310,7 +310,7 @@ function handleValidPacket(
 ): void {
     const now = performance.now();
     const shouldUpdateUiText = (now - lastUiUpdateTime) >= 100;
-    if (shouldUpdateUiText) {
+    if (shouldUpdateUiText) {//////////////////////////////////////////////
         lastUiUpdateTime = now;
     }
 
@@ -332,7 +332,24 @@ function handleValidPacket(
                 finalValue = decodeFloat(rawValue, nextWord);
             }
 
-            buffers[i]?.push(finalValue);
+                        buffers[i]?.push(finalValue);
+                                 // Обновляем букву в квадратике, если он сейчас на экране
+         const indEl = document.getElementById(`osc-ind-${i}`);
+         if (indEl) {
+             indEl.textContent = finalValue === 1 ? 'I' : 'O';
+         }
+                        if (i < 3) console.log(`[DEBUG] Param ${i}: ${mapEntry?.name} | Type: ${mapEntry?.type} | Value: ${finalValue}`);
+const oscModel = (window as any).oscModel;
+if (oscModel && oscModel.rows[i]) {
+    oscModel.rows[i].signal.currentValue = finalValue;
+}
+
+// === КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Обновляем currentValue в глобальной модели ===
+const model = (window as any).oscModel;
+if (model && model.rows[i]) {
+  model.rows[i].signal.currentValue = finalValue;
+}
+            // ========================================================================
 
             if (shouldUpdateUiText) {
                 let physicalValue = finalValue;
@@ -349,19 +366,6 @@ function handleValidPacket(
                 const formattedPhysical = mapEntry.type === 'TBit' 
                     ? physicalValue.toString() 
                     : physicalValue.toFixed(mapEntry.decimals);
-
-                // const hexEl = document.getElementById(`param-hex-${i}`);
-                // if (hexEl) hexEl.textContent = hexString;
-
-                // const physEl = document.getElementById(`param-phys-${i}`);
-                // if (physEl) physEl.textContent = formattedPhysical;
-
-                // // Обновление текстового содержимого внутренних div-контейнеров таблицы осциллографа
-                // const oscHexEl = document.getElementById(`osc-hex-${i}`);
-                // if (oscHexEl) oscHexEl.textContent = hexString;
-
-                // const oscPhysEl = document.getElementById(`osc-phys-${i}`);
-                // if (oscPhysEl) oscPhysEl.textContent = formattedPhysical;
             }
         } else {
             buffers[i]?.push(0);

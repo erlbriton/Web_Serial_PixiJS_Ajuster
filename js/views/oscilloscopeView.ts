@@ -41,12 +41,12 @@ export function createOscilloscopeView(): HTMLElement {
             rowDiv.className = 'osc-data-row';
             rowDiv.style.height = `${row.height}px`;
 
-            // ОДНО объявление isTBit на строку (дубликаты удалены)
+                        // ОДНО объявление isTBit на строку
             const isTBit = String(row.signal.dataType || '').trim() === 'TBit';
             
-            // Hex: для TBit берем live-значение (0 или 1), для остальных - адрес регистра
+            // Hex: для TBit будет индикатор, для остальных - адрес регистра
             const hexVal = isTBit 
-                ? Number(row.signal.currentValue || 0).toString(16).toUpperCase().padStart(4, '0')
+                ? '' 
                 : row.signal.register.toString(16).toUpperCase().padStart(4, '0');
             
             // Physical: для TBit пусто, для остальных - live-значение
@@ -54,9 +54,14 @@ export function createOscilloscopeView(): HTMLElement {
                 ? '' 
                 : (typeof row.signal.currentValue === 'number' ? row.signal.currentValue.toFixed(2) : String(row.signal.currentValue));
 
+            // Формируем HTML индикатора (квадрат с 0 или 1) только для TBit
+            const indicatorHtml = isTBit 
+                ? `<div class="discrete-indicator ${row.signal.currentValue === 1 ? 'active' : ''}">${row.signal.currentValue === 1 ? '1' : '0'}</div>`
+                : '';
+
             rowDiv.innerHTML = `
                 <div class="col col-name" title="${row.signal.name}">${row.signal.name}</div>
-                <div class="col col-hex">${hexVal}</div>
+                <div class="col col-hex">${isTBit ? indicatorHtml : hexVal}</div>
                 <div class="col col-phys">${physVal}</div>
                 <div class="col col-unit">${isTBit ? '' : row.signal.unit}</div>
                 <div class="col col-graph"></div>

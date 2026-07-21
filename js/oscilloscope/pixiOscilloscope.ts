@@ -249,7 +249,7 @@ export class PixiOscilloscope {
 
                 // Выбираем цвет: для дискретных чередуем голубой (0x56CCF2) и коричневый (0x8B4513)
                 const waveColor = isDiscrete 
-                    ? ((discreteCounter % 2 === 0) ? 0x56CCF2 : 0x8B4513) 
+                    ? ((discreteCounter % 2 === 0) ? 0x00BFFF : 0x8B4513) 
                     : this.brightColors[rowGeom.channelIndex % 10];
                 
                 if (isDiscrete) {
@@ -318,7 +318,7 @@ export class PixiOscilloscope {
             if (finalX > 0) drawSeg(segStartX, finalX, segStartVal);
 
         } else {
-            g.lineStyle(1, color, 1);
+            g.lineStyle(1, color, 0.9);
             let started = false;
             for (let j = 0; j < data.length; j++) {
                 const x = this.width - (j * 2);
@@ -354,7 +354,7 @@ export class PixiOscilloscope {
             if (bodyContainer) {
                 bodyContainer.innerHTML = ''; // Очищаем контейнер (на случай если file-loader вставил туда что-то старое)
                 
-               model.rows.forEach((row: any) => {
+                              model.rows.forEach((row: any, i: number) => {
     const rowDiv = document.createElement('div');
     rowDiv.className = 'osc-data-row';
     rowDiv.style.height = `${row.height}px`;
@@ -362,19 +362,26 @@ export class PixiOscilloscope {
     // Проверка на TBit
     const isTBit = String(row.signal.dataType || '').trim() === 'TBit';
     
-    // Для TBit: Hex = currentValue (0/1 в 16-ричном виде), Physical = пусто
-    // Для остальных: Hex = register, Physical = currentValue
+    // Для TBit: индикатор (квадрат с I или O), для остальных: Hex = register
     const hexVal = isTBit 
-        ? Number(row.signal.currentValue || 0).toString(16).toUpperCase().padStart(4, '0')
+        ? '' 
         : row.signal.register.toString(16).toUpperCase().padStart(4, '0');
     
+    // Physical: для TBit пусто, для остальных - currentValue
     const physVal = isTBit 
         ? '' 
         : (typeof row.signal.currentValue === 'number' ? row.signal.currentValue.toFixed(2) : String(row.signal.currentValue));
 
+    // Индикатор для дискретных параметров (простая рамка с I или O)
+        // Индикатор для дискретных параметров (простая рамка с I или O)
+    // Добавили id="osc-indicator-${i}" чтобы быстро находить этот элемент
+    const indicatorHtml = isTBit 
+           ? `<div id="osc-ind-${i}" class="discrete-indicator">${row.signal.currentValue === 1 ? 'I' : 'O'}</div>`
+    : '';
+
     rowDiv.innerHTML = `
         <div class="col col-name" title="${row.signal.name}">${row.signal.name}</div>
-        <div class="col col-hex">${hexVal}</div>
+        <div class="col col-hex">${isTBit ? indicatorHtml : hexVal}</div>
         <div class="col col-phys">${physVal}</div>
         <div class="col col-unit">${isTBit ? '' : row.signal.unit}</div>
         <div class="col col-graph"></div>
