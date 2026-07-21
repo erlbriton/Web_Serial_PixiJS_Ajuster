@@ -351,7 +351,7 @@ if (model && model.rows[i]) {
 }
             // ========================================================================
 
-            if (shouldUpdateUiText) {
+                        if (shouldUpdateUiText) {
                 let physicalValue = finalValue;
                 let hexString = '';
 
@@ -366,7 +366,26 @@ if (model && model.rows[i]) {
                 const formattedPhysical = mapEntry.type === 'TBit' 
                     ? physicalValue.toString() 
                     : physicalValue.toFixed(mapEntry.decimals);
+
+                // Обновляем колонки hex и physical в таблице осциллографа
+                const oscHexEl = document.getElementById(`osc-hex-${i}`);
+                if (oscHexEl) {
+                    if (mapEntry.type === 'TBit') {
+                        // Для дискретных параметров показываем квадратик с I или O
+                        oscHexEl.innerHTML = `<div id="osc-ind-${i}" class="discrete-indicator">${finalValue === 1 ? 'I' : 'O'}</div>`;
+                    } else {
+                        oscHexEl.textContent = hexString;
+                    }
+                }
+
+                const oscPhysEl = document.getElementById(`osc-phys-${i}`);
+                if (oscPhysEl) {
+                    oscPhysEl.textContent = mapEntry.type === 'TBit' ? '' : formattedPhysical;
+                }
             }
+
+
+            
         } else {
             buffers[i]?.push(0);
         }

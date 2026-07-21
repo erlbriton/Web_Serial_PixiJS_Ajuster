@@ -266,9 +266,9 @@ export class PixiOscilloscope {
                 bg.endFill();
 
                 // Яркая линия, совпадающая с CSS
-                bg.lineStyle(1, 0x888888, 1);
-                bg.moveTo(0, rowGeom.y + rowGeom.height - 1);
-                bg.lineTo(this.width, rowGeom.y + rowGeom.height - 1);
+                // bg.lineStyle(1, 0x888888, 1);
+                // bg.moveTo(0, rowGeom.y + rowGeom.height - 1);
+                // bg.lineTo(this.width, rowGeom.y + rowGeom.height - 1);
 
                 // Определяем, является ли текущий канал дискретным (TBit)
                 const currentRow = model.rows[rowGeom.channelIndex];
@@ -407,10 +407,10 @@ const val = (data[data.length - 1 - j] / maxVal) * (height - 4);
            ? `<div id="osc-ind-${i}" class="discrete-indicator">${row.signal.currentValue === 1 ? 'I' : 'O'}</div>`
     : '';
 
-    rowDiv.innerHTML = `
+        rowDiv.innerHTML = `
         <div class="col col-name" title="${row.signal.name}">${row.signal.name}</div>
-        <div class="col col-hex">${isTBit ? indicatorHtml : hexVal}</div>
-        <div class="col col-phys">${physVal}</div>
+        <div class="col col-hex" id="osc-hex-${i}">${isTBit ? indicatorHtml : hexVal}</div>
+        <div class="col col-phys" id="osc-phys-${i}">${physVal}</div>
         <div class="col col-unit">${isTBit ? '' : row.signal.unit}</div>
         <div class="col col-graph"></div>
     `;
