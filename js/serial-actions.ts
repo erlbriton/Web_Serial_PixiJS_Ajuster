@@ -2,6 +2,8 @@
 import { identifyUsbChip } from './usb.js';
 import { showIdModal, updateIdBanner, closeIdModal } from './ui.js';
 import { calculateRamRange } from './oscilloscope/ringBuffer.js';
+import { MonitorRow } from './model/monitorRow.js';
+import { MonitorSignal } from './model/monitorSignal.js';
 
 let currentLoopId = 0; 
 let lastUiUpdateTime = 0; // Время последнего обновления текстовых полей в UI
@@ -160,6 +162,44 @@ export async function readLoop(serial: any, parser: any, view: any, buffers: any
     const loopId = ++currentLoopId; 
     serialManager.init(serial);
 
+    // Архитектурно правильная инициализация модели строк графиков (предотвращает undefined)
+    const oscModel = (window as any).oscModel;
+    if (oscModel && typeof oscModel.clear === 'function') {
+        oscModel.clear();
+        keys.forEach((key) => {
+            const parts = ramSection[key];
+            if (parts) {
+                const name = parts[0] || key;
+                const desc = parts[1] || name;
+                const type = parts[2] || 'TWORD';
+                
+                let scale = 1;
+                if (type !== 'TBit' && parts[6]) {
+                    const parsedScale = parseFloat(parts[6].replace(',', '.'));
+                    if (!isNaN(parsedScale)) scale = parsedScale;
+                }
+
+                const signal: MonitorSignal = {
+                    id: key,
+                    name: name,
+                    description: desc,
+                    dataType: type,
+                    register: 0,
+                    unit: type === 'TBit' ? '—' : (parts[5] || '—'),
+                    multiplier: scale,
+                    buffer: null as any,
+                    currentValue: 0,
+                    min: 0,
+                    max: 100,
+                    autoScale: false
+                };
+
+                const row = new MonitorRow(signal);
+                oscModel.addRow(row);
+            }
+        });
+    }
+
     if (view && typeof view.setRowTypes === 'function') {
         const types = keys.map(key => ramSection[key] ? ramSection[key][2] : 'TWORD');
         view.setRowTypes(types);
@@ -170,7 +210,7 @@ export async function readLoop(serial: any, parser: any, view: any, buffers: any
         const parts = ramSection[key];
         if (parts) {
             const type = parts[2];
-            const name = parts[0] || ''; // Берем строго имя параметра (DExS_PWR_OK)
+            const name = parts[0] || ''; 
             const unit = type === 'TBit' ? '—' : (parts[5] || '—');
 
             const nameEl = document.getElementById(`param-name-${i}`);
@@ -181,7 +221,7 @@ export async function readLoop(serial: any, parser: any, view: any, buffers: any
         }
     });
 
-    // 2. Автоматическая генерация строк таблицы осциллографа с всплывающими подсказками (описание уходит в title)
+    // 2. Автоматическая генерация строк таблицы осциллографа
     const oscTbody = document.querySelector('.osc-data-grid tbody');
     if (oscTbody) {
         let oscHtml = '';
@@ -189,8 +229,8 @@ export async function readLoop(serial: any, parser: any, view: any, buffers: any
             const parts = ramSection[key];
             if (parts) {
                 const type = parts[2];
-                const name = parts[0] || ''; // Имя параметра для отображения в колонке
-                const desc = parts[1] || parts[0] || ''; // Полное описание уходит во всплывающую подсказку при наведении
+                const name = parts[0] || ''; 
+                const desc = parts[1] || parts[0] || ''; 
                 const unit = type === 'TBit' ? '—' : (parts[5] || '—');
                 const displayUnit = (type === 'TBit') ? '.' : (unit === '*' ? '—' : unit);
 
@@ -215,8 +255,8 @@ export async function readLoop(serial: any, parser: any, view: any, buffers: any
         oscTbody.innerHTML = oscHtml;
     }
 
-    // 3. Строим точную карту параметров с кэшированием всех метаданных
-    const regMap: (RegMapEntry | null)[ ] = keys.map(key => {
+    // 3. Строим точную карту параметров
+    const regMap: (RegMapEntry | null)[] = keys.map(key => {
         if (key && ramSection[key]) {
             const parts = ramSection[key];
             const type = parts[2];     
@@ -228,7 +268,7 @@ export async function readLoop(serial: any, parser: any, view: any, buffers: any
                     const regAddress = parseInt(match[1], 16); 
                     const bitOffset = match[2] !== undefined ? parseInt(match[2], 16) : 0;
                     
-                    const name = parts[0] || ''; // Системное имя параметра
+                    const name = parts[0] || ''; 
                     const unit = type === 'TBit' ? '—' : (parts[5] || '—');
 
                     let scale = 1;
@@ -310,9 +350,11 @@ function handleValidPacket(
 ): void {
     const now = performance.now();
     const shouldUpdateUiText = (now - lastUiUpdateTime) >= 100;
-    if (shouldUpdateUiText) {//////////////////////////////////////////////
+    if (shouldUpdateUiText) {
         lastUiUpdateTime = now;
     }
+
+    const oscModel = (window as any).oscModel;
 
     for (let i = 0; i < buffers.length; i++) {
         const mapEntry = regMap[i];
@@ -332,34 +374,137 @@ function handleValidPacket(
                 finalValue = decodeFloat(rawValue, nextWord);
             }
 
-                        buffers[i]?.push(finalValue);
-                                 // Обновляем букву в квадратике, если он сейчас на экране
-         const indEl = document.getElementById(`osc-ind-${i}`);
-         if (indEl) {
-             indEl.textContent = finalValue === 1 ? 'I' : 'O';
-         }
-                        if (i < 3) console.log(`[DEBUG] Param ${i}: ${mapEntry?.name} | Type: ${mapEntry?.type} | Value: ${finalValue}`);
-const oscModel = (window as any).oscModel;
-if (oscModel && oscModel.rows[i]) {
-    oscModel.rows[i].signal.currentValue = finalValue;
-}
+            // Извлекаем текущую шкалу
+            const row = oscModel?.rows?.[i];
+            const sig = row?.signal;
+            const userScale = sig?.multiplier;
+            const effectiveScale = (typeof userScale === 'number' && !isNaN(userScale)) ? userScale : mapEntry.scale;
 
-// === КРИТИЧЕСКОЕ ИСПРАВЛЕНИЕ: Обновляем currentValue в глобальной модели ===
-const model = (window as any).oscModel;
-if (model && model.rows[i]) {
-  model.rows[i].signal.currentValue = finalValue;
-}
-            // ========================================================================
+            // 1. Инициализация базовых лимитов (если еще не заданы)
+            if (sig) {
+                if (sig._baseMax === undefined && typeof sig.max === 'number') sig._baseMax = sig.max;
+                if (sig._baseMin === undefined && typeof sig.min === 'number') {
+                    sig._baseMin = sig.min;
+                    if ((mapEntry.type === 'TInteger' || mapEntry.type === 'TFloat') && sig._baseMin >= 0) {
+                        const maxVal = sig._baseMax !== undefined ? sig._baseMax : 100;
+                        sig._baseMin = maxVal > 0 ? -maxVal : -100;
+                    }
+                }
+                if (row) {
+                    if (row._baseMax === undefined && typeof row.max === 'number') row._baseMax = row.max;
+                    if (row._baseMin === undefined && typeof row.min === 'number') {
+                        row._baseMin = row.min;
+                        if ((mapEntry.type === 'TInteger' || mapEntry.type === 'TFloat') && row._baseMin >= 0) {
+                            const maxVal = row._baseMax !== undefined ? row._baseMax : 100;
+                            row._baseMin = maxVal > 0 ? -maxVal : -100;
+                        }
+                    }
+                }
+            }
 
-                        if (shouldUpdateUiText) {
-                let physicalValue = finalValue;
+            // 2. Рассчитываем текущее физическое значение
+            let physicalValue = finalValue;
+            if (mapEntry.type !== 'TBit') {
+                physicalValue = finalValue * effectiveScale + mapEntry.offset;
+            }
+
+            // 3. Помещаем в буфер честное физическое значение (история не искажается масштабом!)
+            buffers[i]?.push(physicalValue);
+
+            // 4. Расчет и установка лимитов графика
+            if (sig) {
+                const isAutoScale = Boolean(sig.autoScale || row?.autoScale);
+                const iniScale = mapEntry.scale !== 0 ? mapEntry.scale : 1;
+                const scaleFactor = effectiveScale / iniScale;
+
+                if (isAutoScale) {
+                    // АВТОМАСШТАБИРОВАНИЕ: честный расчет min/max по всему буферу
+                    const buf = buffers[i];
+                    if (buf && buf.length > 0) {
+                        let minVal = Infinity;
+                        let maxVal = -Infinity;
+                        let hasValidData = false;
+                        
+                        for (let k = 0; k < buf.length; k++) {
+                            const v = buf[k];
+                            if (v !== undefined && v !== null && !isNaN(v)) {
+                                hasValidData = true;
+                                if (v < minVal) minVal = v;
+                                if (v > maxVal) maxVal = v;
+                            }
+                        }
+                        
+                        if (hasValidData && minVal !== Infinity && maxVal !== -Infinity) {
+                            if (minVal === maxVal) {
+                                minVal -= 1;
+                                maxVal += 1;
+                            } else {
+                                const span = maxVal - minVal;
+                                minVal -= span * 0.05;
+                                maxVal += span * 0.05;
+                            }
+                            
+                            sig.min = minVal;
+                            sig.max = maxVal;
+                            if (row) {
+                                row.min = minVal;
+                                row.max = maxVal;
+                            }
+                        }
+                    }
+                } else {
+                    // РУЧНОЙ РЕЖИМ
+                    if (sig._baseMax !== undefined) sig.max = sig._baseMax * scaleFactor;
+                    if (sig._baseMin !== undefined) sig.min = sig._baseMin * scaleFactor;
+                    if (row && row._baseMax !== undefined) row.max = row._baseMax * scaleFactor;
+                    if (row && row._baseMin !== undefined) row.min = row._baseMin * scaleFactor;
+
+                    // Автоматическое расширение границ в ручном режиме, если значение вышло за рамки
+                    if (physicalValue < sig.min) {
+                        sig.min = physicalValue - (Math.abs(physicalValue) * 0.05 + 0.1);
+                        if (sig._baseMin !== undefined && scaleFactor !== 0) {
+                            sig._baseMin = sig.min / scaleFactor;
+                        }
+                        if (row) {
+                            row.min = sig.min;
+                            if (row._baseMin !== undefined && scaleFactor !== 0) {
+                                row._baseMin = sig.min / scaleFactor;
+                            }
+                        }
+                    }
+                    if (physicalValue > sig.max) {
+                        sig.max = physicalValue + (Math.abs(physicalValue) * 0.05 + 0.1);
+                        if (sig._baseMax !== undefined && scaleFactor !== 0) {
+                            sig._baseMax = sig.max / scaleFactor;
+                        }
+                        if (row) {
+                            row.max = sig.max;
+                            if (row._baseMax !== undefined && scaleFactor !== 0) {
+                                row._baseMax = sig.max / scaleFactor;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Обновляем индикатор для дискретных значений
+            const indEl = document.getElementById(`osc-ind-${i}`);
+            if (indEl) {
+                indEl.textContent = finalValue === 1 ? 'I' : 'O';
+            }
+
+            // Обновляем currentValue в модели
+            if (sig) {
+                sig.currentValue = physicalValue;
+            }
+
+            // Обновление UI текстовых полей
+            if (shouldUpdateUiText) {
                 let hexString = '';
 
                 if (mapEntry.type === 'TBit') {
-                    physicalValue = finalValue; 
                     hexString = '0x' + finalValue.toString(16).toUpperCase();
                 } else {
-                    physicalValue = finalValue * mapEntry.scale + mapEntry.offset;
                     hexString = '0x' + rawValue.toString(16).toUpperCase().padStart(4, '0');
                 }
 
@@ -367,11 +512,9 @@ if (model && model.rows[i]) {
                     ? physicalValue.toString() 
                     : physicalValue.toFixed(mapEntry.decimals);
 
-                // Обновляем колонки hex и physical в таблице осциллографа
                 const oscHexEl = document.getElementById(`osc-hex-${i}`);
                 if (oscHexEl) {
                     if (mapEntry.type === 'TBit') {
-                        // Для дискретных параметров показываем квадратик с I или O
                         oscHexEl.innerHTML = `<div id="osc-ind-${i}" class="discrete-indicator">${finalValue === 1 ? 'I' : 'O'}</div>`;
                     } else {
                         oscHexEl.textContent = hexString;
@@ -383,9 +526,6 @@ if (model && model.rows[i]) {
                     oscPhysEl.textContent = mapEntry.type === 'TBit' ? '' : formattedPhysical;
                 }
             }
-
-
-            
         } else {
             buffers[i]?.push(0);
         }

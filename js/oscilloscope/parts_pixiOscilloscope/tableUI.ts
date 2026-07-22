@@ -18,27 +18,35 @@ export function generateTableRows(
     model.rows.forEach((row: any, i: number) => {
         const rowDiv = document.createElement('div');
         rowDiv.className = 'osc-data-row';
-        rowDiv.style.height = `${row.height}px`;
+        rowDiv.style.height = `${row.height || 20}px`;
 
-        const isTBit = String(row.signal.dataType || '').trim() === 'TBit';
+        const signal = row.signal || {};
+        const isTBit = String(signal.dataType || '').trim() === 'TBit';
 
-        const hexVal = isTBit
+        const regVal = signal.register;
+        const hexVal = isTBit || regVal === undefined || regVal === null
             ? ''
-            : row.signal.register.toString(16).toUpperCase().padStart(4, '0');
+            : '0x' + Number(regVal).toString(16).toUpperCase().padStart(4, '0');
 
+        const curVal = signal.currentValue;
+        const multiplier = typeof signal.multiplier === 'number' ? signal.multiplier : 1;
+
+        // Вычисляем физическое значение с учётом множителя (шкалы)
         const physVal = isTBit
             ? ''
-            : (typeof row.signal.currentValue === 'number' ? row.signal.currentValue.toFixed(2) : String(row.signal.currentValue));
+            : (typeof curVal === 'number' 
+                ? (curVal * multiplier).toFixed(2) 
+                : String(curVal ?? '0.00'));
 
         const indicatorHtml = isTBit
-            ? `<div id="osc-ind-${i}" class="discrete-indicator">${row.signal.currentValue === 1 ? 'I' : 'O'}</div>`
+            ? `<div id="osc-ind-${i}" class="discrete-indicator">${curVal === 1 ? 'I' : '0'}</div>`
             : '';
 
         rowDiv.innerHTML = `
-            <div class="col col-name" title="${row.signal.name}">${row.signal.name}</div>
+            <div class="col col-name" title="${signal.name || ''}">${signal.name || ''}</div>
             <div class="col col-hex" id="osc-hex-${i}">${isTBit ? indicatorHtml : hexVal}</div>
             <div class="col col-phys" id="osc-phys-${i}">${physVal}</div>
-            <div class="col col-unit">${isTBit ? '' : row.signal.unit}</div>
+            <div class="col col-unit">${isTBit ? '' : (signal.unit || '')}</div>
             <div class="col col-graph"></div>
         `;
 
@@ -57,7 +65,7 @@ export function generateTableRows(
             highlighter.style.height = `${height}px`;
         });
 
-        // Правый клик — гарантированное открытие окна настройки
+        // Правый клик — открытие окна настройки
         rowDiv.addEventListener('contextmenu', (e: MouseEvent) => {
             e.preventDefault();
             e.stopPropagation();
