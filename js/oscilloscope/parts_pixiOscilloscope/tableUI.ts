@@ -1,14 +1,19 @@
 // js/oscilloscope/parts_pixiOscilloscope/tableUI.ts
 import { MonitorModel } from "../../model/monitorModel.js";
+import { openSignalConfigDialog } from "./signalConfigDialog.js";
 
 export function generateTableRows(
     model: MonitorModel,
     bodyContainer: HTMLElement,
-    containerElement: HTMLElement, // <-- Передаем элемент, а не готовый rect
+    containerElement: HTMLElement,
     highlighter: HTMLDivElement,
-    onRowClick: (rowDiv: HTMLElement) => void
+    onRowClick: (rowDiv: HTMLElement) => void,
+    onSaveConfig?: () => void
 ): void {
     bodyContainer.innerHTML = '';
+
+    // Блокируем стандартное контекстное меню для всей области таблицы
+    bodyContainer.oncontextmenu = (e: MouseEvent) => e.preventDefault();
 
     model.rows.forEach((row: any, i: number) => {
         const rowDiv = document.createElement('div');
@@ -37,10 +42,10 @@ export function generateTableRows(
             <div class="col col-graph"></div>
         `;
 
+        // Левый клик — выделение строки
         rowDiv.addEventListener('click', () => {
             onRowClick(rowDiv);
 
-            // ВАЖНО: Вычисляем координаты прямо здесь, в момент клика (как в оригинале)
             const rowRect = rowDiv.getBoundingClientRect();
             const containerRect = containerElement.getBoundingClientRect();
             
@@ -50,6 +55,24 @@ export function generateTableRows(
             highlighter.style.display = 'block';
             highlighter.style.top = `${top}px`;
             highlighter.style.height = `${height}px`;
+        });
+
+        // Правый клик — гарантированное открытие окна настройки
+        rowDiv.addEventListener('contextmenu', (e: MouseEvent) => {
+            e.preventDefault();
+            e.stopPropagation();
+
+            onRowClick(rowDiv);
+            const rowRect = rowDiv.getBoundingClientRect();
+            const containerRect = containerElement.getBoundingClientRect();
+            
+            highlighter.style.display = 'block';
+            highlighter.style.top = `${rowRect.top - containerRect.top}px`;
+            highlighter.style.height = `${rowRect.height}px`;
+
+            openSignalConfigDialog(row, () => {
+                if (onSaveConfig) onSaveConfig();
+            });
         });
 
         bodyContainer.appendChild(rowDiv);

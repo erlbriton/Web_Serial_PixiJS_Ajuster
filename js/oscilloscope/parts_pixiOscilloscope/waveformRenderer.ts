@@ -8,7 +8,8 @@ export function drawWaveform(
     isDiscrete: boolean,
     color: number,
     width: number,
-    maxValues: number[]
+    maxValues: number[],
+    row?: any
 ): void {
     const data = Array.from(dataRaw);
     const { y, height } = geom;
@@ -55,19 +56,36 @@ export function drawWaveform(
         if (finalX > 0) drawSeg(segStartX, finalX, segStartVal);
 
     } else {
+        // 1. Определение максимума
+        let maxVal = maxValues[geom.channelIndex];
+        
+        // Если ручной режим выключил "Авто" и задано корректное значение
+        if (row && row.autoScale === false && typeof row.maxScale === 'number' && row.maxScale > 0) {
+            maxVal = row.maxScale;
+        }
+
+        // 2. Защита от деления на 0, NaN и Infinity
+        if (!maxVal || maxVal <= 0 || !isFinite(maxVal)) {
+            maxVal = 1;
+        }
+
         let started = false;
         for (let j = 0; j < data.length; j++) {
             const x = width - (j * 2);
             if (x < 0) break;
             
-            const maxVal = maxValues[geom.channelIndex] || 1100;
             const rawVal = data[data.length - 1 - j];
             const absVal = Math.abs(rawVal);
             
             const lineColor = rawVal < 0 ? 0xFF0000 : color;
             
             const val = (absVal / maxVal) * (height - 4);
-            const py = y + (height - 2 - val);
+            let py = y + (height - 2 - val);
+
+            // 3. Ограничение (обрезка) точки Y строго в пределах строки
+            const minY = y + 2;                  // Верхняя граница строки
+            const maxY = y + height - 2;         // Нижняя граница строки
+            py = Math.max(minY, Math.min(maxY, py));
             
             g.lineStyle(1, lineColor, 0.9);
             if (!started) { g.moveTo(x, py); started = true; }

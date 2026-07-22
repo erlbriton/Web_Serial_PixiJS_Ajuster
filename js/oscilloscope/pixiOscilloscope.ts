@@ -4,10 +4,11 @@ import { ScopeLayout, RowGeometry } from "../model/scopeLayout.js";
 import { calculateMaxValues } from "./parts_pixiOscilloscope/dataProcessor.js";
 import { handleWheelScroll } from "./parts_pixiOscilloscope/scrollbar.js"; // Убрали updateScrollbar
 import { drawWaveform as drawWaveformExternal } from "./parts_pixiOscilloscope/waveformRenderer.js";
-import { handleCanvasClick, createHighlighter } from "./parts_pixiOscilloscope/canvasInteraction.js";
+import { handleCanvasClick, handleCanvasContextMenu, createHighlighter } from "./parts_pixiOscilloscope/canvasInteraction.js";
 import { generateTableRows } from "./parts_pixiOscilloscope/tableUI.js";
 import { initPixiApp, setupResizeObserver } from "./parts_pixiOscilloscope/pixiInit.js"; // Добавлен setupResizeObserver
 import { initScrollbar } from "./parts_pixiOscilloscope/scrollbarDom.js";
+
 
 interface RingBuffer {
     getLinearData: () => number[];
@@ -125,7 +126,7 @@ export class PixiOscilloscope {
             this.needsRedraw = result.needsRedraw;
         }, { passive: false });
 
-        // === Обработчик клика на канвас ===
+        // === Обработчик клика на канвас (левая кнопка) ===
         (this.app.view as HTMLCanvasElement).addEventListener('click', (e: MouseEvent) => {
             const model = (window as any).oscModel as MonitorModel;
             if (!model) return;
@@ -142,6 +143,31 @@ export class PixiOscilloscope {
                 this.highlighter,
                 (newSelectedRow: HTMLElement | null) => {
                     this.selectedRow = newSelectedRow;
+                }
+            );
+        });
+
+        // === Обработчик правого клика на канвас (контекстное меню) ===
+        (this.app.view as HTMLCanvasElement).addEventListener('contextmenu', (e: MouseEvent) => {
+            const model = (window as any).oscModel as MonitorModel;
+            if (!model) return;
+
+            const selectedRef = { current: this.selectedRow };
+
+            handleCanvasContextMenu(
+                e,
+                this.app.view as HTMLCanvasElement,
+                this.scrollY,
+                this.containerElement.getBoundingClientRect(),
+                model,
+                selectedRef,
+                this.highlighter,
+                (newSelectedRow: HTMLElement | null) => {
+                    this.selectedRow = newSelectedRow;
+                },
+                () => {
+                    this.updateLayout(model);
+                    this.updateRows();
                 }
             );
         });
@@ -202,7 +228,7 @@ export class PixiOscilloscope {
                     discreteCounter++;
                 }
 
-                drawWaveformExternal(wave, data, rowGeom, isDiscrete, waveColor, this.width, this.maxValues);
+                drawWaveformExternal(wave, data, rowGeom, isDiscrete, waveColor, this.width, this.maxValues, currentRow);
             } else {
                 bg.visible = false;
                 wave.visible = false;
@@ -247,6 +273,10 @@ export class PixiOscilloscope {
 
                         rowDiv.classList.add('selected');
                         this.selectedRow = rowDiv;
+                    },
+                    () => {
+                        this.updateLayout(model);
+                        this.updateRows();
                     }
                 );
             }

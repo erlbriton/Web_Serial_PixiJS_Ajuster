@@ -1,5 +1,6 @@
 // js/oscilloscope/parts_pixiOscilloscope/canvasInteraction.ts
 import { MonitorModel } from "../../model/monitorModel.js";
+import { openSignalConfigDialog } from "./signalConfigDialog.js";
 
 export function createHighlighter(container: HTMLElement): HTMLDivElement {
     const highlighter = document.createElement('div');
@@ -8,46 +9,38 @@ export function createHighlighter(container: HTMLElement): HTMLDivElement {
     return highlighter;
 }
 
-export function handleCanvasClick(
-    e: MouseEvent,
-    canvasView: HTMLCanvasElement,
-    scrollY: number,
-    containerRect: DOMRect,
-    model: MonitorModel,
-    selectedRowRef: { current: HTMLElement | null },
-    highlighter: HTMLDivElement,
-    onSelectionChange: (row: HTMLElement | null) => void // <--- ДОБАВИТЬ ЭТОТ ПАРАМЕТР
-): void {
-    const canvasRect = canvasView.getBoundingClientRect();
-    const clickY = e.clientY - canvasRect.top;
-
-    const absoluteClickY = clickY + scrollY;
+// Поиск индекса строки по координате Y
+function getRowIndexByY(model: MonitorModel, absoluteClickY: number): number {
     let currentY = 0;
-    let clickedRowIndex = -1;
-
     for (let i = 0; i < model.rows.length; i++) {
         const rowHeight = model.rows[i].height;
         if (absoluteClickY >= currentY && absoluteClickY < currentY + rowHeight) {
-            clickedRowIndex = i;
-            break;
+            return i;
         }
         currentY += rowHeight;
     }
+    return -1;
+}
 
+// Выделение строки в интерфейсе
+function selectRowByIndex(
+    clickedRowIndex: number,
+    containerRect: DOMRect,
+    selectedRowRef: { current: HTMLElement | null },
+    highlighter: HTMLDivElement,
+    onSelectionChange: (row: HTMLElement | null) => void
+): void {
     if (clickedRowIndex >= 0) {
         const allRows = document.querySelectorAll('#osc-grid-body .osc-data-row');
         if (allRows[clickedRowIndex]) {
             const rowDiv = allRows[clickedRowIndex] as HTMLElement;
 
             allRows.forEach((row: Element) => {
-                const el = row as HTMLElement;
-                el.classList.remove('selected');
+                (row as HTMLElement).classList.remove('selected');
             });
 
             rowDiv.classList.add('selected');
             selectedRowRef.current = rowDiv;
-            
-            // Вызываем колбэк, чтобы обновить this.selectedRow в классе
             onSelectionChange(rowDiv);
 
             const rowRect = rowDiv.getBoundingClientRect();
@@ -65,12 +58,60 @@ export function handleCanvasClick(
     } else {
         const allRows = document.querySelectorAll('#osc-grid-body .osc-data-row');
         allRows.forEach((row: Element) => {
-            const el = row as HTMLElement;
-            el.classList.remove('selected');
+            (row as HTMLElement).classList.remove('selected');
         });
         
         selectedRowRef.current = null;
         onSelectionChange(null);
         highlighter.style.display = 'none';
+    }
+}
+
+// Обработка ЛЕВОГО клика по холсту
+export function handleCanvasClick(
+    e: MouseEvent,
+    canvasView: HTMLCanvasElement,
+    scrollY: number,
+    containerRect: DOMRect,
+    model: MonitorModel,
+    selectedRowRef: { current: HTMLElement | null },
+    highlighter: HTMLDivElement,
+    onSelectionChange: (row: HTMLElement | null) => void
+): void {
+    if (e.button !== 0) return; // Пропускаем все клики, кроме левой кнопки
+
+    const canvasRect = canvasView.getBoundingClientRect();
+    const absoluteClickY = (e.clientY - canvasRect.top) + scrollY;
+    const clickedRowIndex = getRowIndexByY(model, absoluteClickY);
+
+    selectRowByIndex(clickedRowIndex, containerRect, selectedRowRef, highlighter, onSelectionChange);
+}
+
+// Обработка ПРАВОГО клика по холсту (контекстное меню)
+export function handleCanvasContextMenu(
+    e: MouseEvent,
+    canvasView: HTMLCanvasElement,
+    scrollY: number,
+    containerRect: DOMRect,
+    model: MonitorModel,
+    selectedRowRef: { current: HTMLElement | null },
+    highlighter: HTMLDivElement,
+    onSelectionChange: (row: HTMLElement | null) => void,
+    onSaveConfig?: () => void
+): void {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const canvasRect = canvasView.getBoundingClientRect();
+    const absoluteClickY = (e.clientY - canvasRect.top) + scrollY;
+    const clickedRowIndex = getRowIndexByY(model, absoluteClickY);
+
+    selectRowByIndex(clickedRowIndex, containerRect, selectedRowRef, highlighter, onSelectionChange);
+
+    if (clickedRowIndex >= 0) {
+        const targetRow = model.rows[clickedRowIndex];
+        openSignalConfigDialog(targetRow, () => {
+            if (onSaveConfig) onSaveConfig();
+        });
     }
 }
