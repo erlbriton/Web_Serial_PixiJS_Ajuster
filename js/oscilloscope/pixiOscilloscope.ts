@@ -6,6 +6,7 @@ import { updateScrollbar, handleWheelScroll } from "./parts_pixiOscilloscope/scr
 import { drawWaveform as drawWaveformExternal } from "./parts_pixiOscilloscope/waveformRenderer.js";
 import { handleCanvasClick } from "./parts_pixiOscilloscope/canvasInteraction.js";
 import { generateTableRows } from "./parts_pixiOscilloscope/tableUI.js";
+import { initPixiApp } from "./parts_pixiOscilloscope/pixiInit.js";
 
 interface RingBuffer {
     getLinearData: () => number[];
@@ -47,21 +48,19 @@ export class PixiOscilloscope {
         this.width = rect.width || 800;
         this.height = rect.height || 600;
 
+        // === Инициализация PIXI вынесена в отдельный модуль ===
+        const pixiInit = initPixiApp(container, this.width, this.height, 0x000000);
+        this.app = pixiInit.app;
+        this.stageContainer = pixiInit.stageContainer;
+        this.backgroundGraphics = pixiInit.backgroundGraphics;
+        this.waveformGraphics = pixiInit.waveformGraphics;
+                this.layout = new ScopeLayout();
+        // =======================================================
+
         this.brightColors = [
             0x00FF00, 0x00FFFF, 0xFF00FF, 0xFFFF00, 0xFF4500,
             0x0099FF, 0xFF0088, 0xADFF2F, 0xFFFFFF, 0x7B68EE
         ];
-
-        // @ts-ignore
-        this.app = new PIXI.Application({
-            width: this.width,
-            height: this.height,
-            backgroundColor: 0x000000,
-            antialias: true,
-            autoStart: true
-        });
-        (this.app.view as HTMLCanvasElement).style.cssText = "width:100%;height:100%;display:block;";
-        container.appendChild(this.app.view as HTMLCanvasElement);
 
         this.scrollbarTrack = document.createElement('div');
         this.scrollbarTrack.style.cssText = 'position:absolute; right:2px; top:2px; bottom:2px; width:8px; background:rgba(255,255,255,0.1); border-radius:4px; z-index:50; cursor:pointer;';
@@ -135,26 +134,6 @@ export class PixiOscilloscope {
                 }
             }, { passive: true });
         }
-
-        // @ts-ignore
-        this.stageContainer = new PIXI.Container();
-        this.app.stage.addChild(this.stageContainer);
-
-        for (let i = 0; i < 300; i++) {
-            // @ts-ignore
-            const bg = new PIXI.Graphics();
-            // @ts-ignore
-            const wave = new PIXI.Graphics();
-
-            this.stageContainer.addChild(bg);
-            this.stageContainer.addChild(wave);
-
-            this.backgroundGraphics.push(bg);
-            this.waveformGraphics.push(wave);
-        }
-
-        this.layout = new ScopeLayout();
-        this.layout.recalculate(model);
 
         this.app.ticker.add(() => {
             if (this.needsRedraw) {
