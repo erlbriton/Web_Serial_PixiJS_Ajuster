@@ -1,6 +1,11 @@
 // js/oscilloscope/pixiOscilloscope.ts
 import { MonitorModel } from "../model/monitorModel.js";
 import { ScopeLayout, RowGeometry } from "../model/scopeLayout.js";
+import { calculateMaxValues } from "./parts_pixiOscilloscope/dataProcessor.js";
+import { updateScrollbar, handleWheelScroll } from "./parts_pixiOscilloscope/scrollbar.js";
+import { drawWaveform as drawWaveformExternal } from "./parts_pixiOscilloscope/waveformRenderer.js";
+import { handleCanvasClick } from "./parts_pixiOscilloscope/canvasInteraction.js";
+import { generateTableRows } from "./parts_pixiOscilloscope/tableUI.js";
 
 interface RingBuffer {
     getLinearData: () => number[];
@@ -30,7 +35,7 @@ export class PixiOscilloscope {
     private lastBuffers?: any[];
     private maxValues: number[] = [];
     private highlighter: HTMLDivElement;
-    private selectedRow: HTMLElement | null = null; // Добавили для отслеживания выбранной строки
+    private selectedRow: HTMLElement | null = null;
 
     constructor(containerId: string, model: MonitorModel) {
         const container = document.getElementById(containerId);
@@ -90,7 +95,7 @@ export class PixiOscilloscope {
             this.scrollY = Math.max(0, Math.min(this.scrollY, maxScroll));
 
             this.stageContainer.y = -this.scrollY;
-            this.updateScrollbar();
+            updateScrollbar(this.scrollY, this.height, this.scrollbarTrack, this.scrollbarThumb);
 
             if (this.tableWrapper) {
                 this.tableWrapper.scrollTop = this.scrollY;
@@ -113,16 +118,14 @@ export class PixiOscilloscope {
             this.tableWrapper.addEventListener('scroll', () => {
                 this.scrollY = this.tableWrapper!.scrollTop;
                 this.stageContainer.y = -this.scrollY;
-                this.updateScrollbar();
+                updateScrollbar(this.scrollY, this.height, this.scrollbarTrack, this.scrollbarThumb);
                 this.needsRedraw = true;
                 
-                // Пересчитываем позицию подсветки при скролле
                 if (this.highlighter && this.selectedRow) {
                     const rowRect = this.selectedRow.getBoundingClientRect();
                     const containerRect = this.containerElement.getBoundingClientRect();
                     const top = rowRect.top - containerRect.top;
                     
-                    // Проверяем, видна ли строка
                     if (top >= 0 && top < this.height) {
                         this.highlighter.style.display = 'block';
                         this.highlighter.style.top = `${top}px`;
@@ -162,24 +165,17 @@ export class PixiOscilloscope {
 
         container.addEventListener('wheel', (e: WheelEvent) => {
             e.preventDefault();
-
-            const currentModel = (window as any).oscModel as MonitorModel;
-            if (!currentModel) return;
-
-            const totalHeight = currentModel.rows.reduce((sum: number, row: any) => sum + row.height, 0);
-            const maxScroll = Math.max(0, totalHeight - this.height);
-
-            this.scrollY += e.deltaY * 1.5;
-            this.scrollY = Math.max(0, Math.min(this.scrollY, maxScroll));
-
-            this.stageContainer.y = -this.scrollY;
-            this.updateScrollbar();
-
-            if (this.tableWrapper) {
-                this.tableWrapper.scrollTop = this.scrollY;
-            }
-
-            this.needsRedraw = true;
+            const result = handleWheelScroll(
+                e.deltaY,
+                this.scrollY,
+                this.height,
+                this.stageContainer!,
+                this.scrollbarTrack,
+                this.scrollbarThumb,
+                this.tableWrapper
+            );
+            this.scrollY = result.newScrollY;
+            this.needsRedraw = result.needsRedraw;
         }, { passive: false });
 
         new ResizeObserver((entries) => {
@@ -194,63 +190,27 @@ export class PixiOscilloscope {
             }
         }).observe(container);
 
-        // Создаем слой для подсветки всей строки
-                // Создаем слой для подсветки всей строки
         this.highlighter = document.createElement('div');
         this.highlighter.style.cssText = 'position:absolute; left:0; width:100%; background-color:rgba(152, 251, 152, 0.4); pointer-events:none; z-index:5; display:none;';
         container.appendChild(this.highlighter);
 
-        // Обработчик клика на область графиков (canvas)
-                // Обработчик клика на область графиков (canvas)
         (this.app.view as HTMLCanvasElement).addEventListener('click', (e: MouseEvent) => {
-            const canvasRect = (this.app.view as HTMLCanvasElement).getBoundingClientRect();
-            const clickY = e.clientY - canvasRect.top;
-            
-            // Вычисляем, на какую строку кликнули (с учётом прокрутки)
             const model = (window as any).oscModel as MonitorModel;
             if (!model) return;
-            
-            const absoluteClickY = clickY + this.scrollY; // Абсолютная координата в модели
-            let currentY = 0;
-            let clickedRowIndex = -1;
-            
-            for (let i = 0; i < model.rows.length; i++) {
-                const rowHeight = model.rows[i].height;
-                if (absoluteClickY >= currentY && absoluteClickY < currentY + rowHeight) {
-                    clickedRowIndex = i;
-                    break;
-                }
-                currentY += rowHeight;
-            }
-            
-            if (clickedRowIndex >= 0) {
-                // Находим соответствующий rowDiv в левой панели
-                const allRows = document.querySelectorAll('#osc-grid-body .osc-data-row');
-                if (allRows[clickedRowIndex]) {
-                    const rowDiv = allRows[clickedRowIndex] as HTMLElement;
-                    
-                    // Снимаем выделение со всех строк
-                    allRows.forEach((row: Element) => {
-                        const el = row as HTMLElement;
-                        el.classList.remove('selected');
-                    });
-                    
-                    rowDiv.classList.add('selected');
-                    this.selectedRow = rowDiv;
 
-                    // Вычисляем позицию строки относительно контейнера осциллографа
-                    const rowRect = rowDiv.getBoundingClientRect();
-                    const containerRect = this.containerElement.getBoundingClientRect();
-                    
-                    const top = rowRect.top - containerRect.top;
-                    const height = rowRect.height;
-                    
-                    // Двигаем и показываем слой подсветки
-                    this.highlighter.style.display = 'block';
-                    this.highlighter.style.top = `${top}px`;
-                    this.highlighter.style.height = `${height}px`;
-                }
-            }
+            const selectedRef = { current: this.selectedRow };
+
+            handleCanvasClick(
+                e,
+                this.app.view as HTMLCanvasElement,
+                this.scrollY,
+                this.containerElement.getBoundingClientRect(),
+                model,
+                selectedRef,
+                this.highlighter
+            );
+
+            this.selectedRow = selectedRef.current;
         });
 
         this.needsRedraw = true;
@@ -259,49 +219,6 @@ export class PixiOscilloscope {
     updateLayout(model: MonitorModel): void {
         this.layout.recalculate(model);
         this.needsRedraw = true;
-    }
-
-    private updateScrollbar(): void {
-        const model = (window as any).oscModel as MonitorModel;
-        if (!model) return;
-
-        const totalHeight = model.rows.reduce((sum: number, row: any) => sum + row.height, 0);
-
-        if (totalHeight <= this.height) {
-            this.scrollbarTrack.style.display = 'none';
-            return;
-        }
-        this.scrollbarTrack.style.display = 'block';
-
-        const thumbHeight = Math.max(20, (this.height / totalHeight) * this.height);
-        const maxTop = this.height - thumbHeight;
-        const thumbTop = (this.scrollY / (totalHeight - this.height)) * maxTop;
-
-        this.scrollbarThumb.style.height = `${thumbHeight}px`;
-        this.scrollbarThumb.style.top = `${thumbTop}px`;
-    }
-
-        private calculateMaxValues(buffers: any[]): void {
-        for (let i = 0; i < buffers.length; i++) {
-            const buffer = buffers[i];
-            if (!buffer) {
-                this.maxValues[i] = 1100; // Значение по умолчанию
-                continue;
-            }
-
-            const data = buffer.getLinearData();
-            let maxVal = 0;
-            
-            for (let j = 0; j < data.length; j++) {
-                const absVal = Math.abs(data[j]);
-                if (absVal > maxVal) {
-                    maxVal = absVal;
-                }
-            }
-
-            // Если максимум слишком маленький, используем минимальное значение
-            this.maxValues[i] = maxVal < 10 ? 1100 : maxVal;
-        }
     }
 
     draw(buffers?: any[]): void {
@@ -314,11 +231,11 @@ export class PixiOscilloscope {
 
         const visibleRows = this.layout.getVisibleRows(this.scrollY, this.height);
         if (this.lastBuffers) {
-            this.calculateMaxValues(this.lastBuffers);
+            calculateMaxValues(this.lastBuffers, this.maxValues);
         }
 
-                let visibleIndex = 0;
-        let discreteCounter = 0; // Счетчик для чередования цветов дискретных параметров
+        let visibleIndex = 0;
+        let discreteCounter = 0;
 
         for (const rowGeom of visibleRows) {
             const bg = this.backgroundGraphics[visibleIndex];
@@ -341,16 +258,9 @@ export class PixiOscilloscope {
                 bg.drawRect(0, rowGeom.y, this.width, rowGeom.height);
                 bg.endFill();
 
-                // Яркая линия, совпадающая с CSS
-                // bg.lineStyle(1, 0x888888, 1);
-                // bg.moveTo(0, rowGeom.y + rowGeom.height - 1);
-                // bg.lineTo(this.width, rowGeom.y + rowGeom.height - 1);
-
-                // Определяем, является ли текущий канал дискретным (TBit)
                 const currentRow = model.rows[rowGeom.channelIndex];
                 const isDiscrete = currentRow && String(currentRow.signal.dataType || '').trim() === 'TBit';
 
-                // Выбираем цвет: для дискретных чередуем голубой (0x56CCF2) и коричневый (0x8B4513)
                 const waveColor = isDiscrete 
                     ? ((discreteCounter % 2 === 0) ? 0x00BFFF : 0x8B4513) 
                     : this.brightColors[rowGeom.channelIndex % 10];
@@ -359,7 +269,7 @@ export class PixiOscilloscope {
                     discreteCounter++;
                 }
 
-                this.drawWaveform(wave, data, rowGeom, isDiscrete, waveColor);
+                drawWaveformExternal(wave, data, rowGeom, isDiscrete, waveColor, this.width, this.maxValues);
             } else {
                 bg.visible = false;
                 wave.visible = false;
@@ -373,76 +283,6 @@ export class PixiOscilloscope {
         }
     }
 
-        private drawWaveform(g: any, dataRaw: Float32Array | number[], geom: RowGeometry, isDiscrete: boolean, color: number): void {
-        const data = Array.from(dataRaw);
-        const { y, height } = geom;
-        const gridSpacing = 50;
-        const timePhasePx = ((Date.now() % 1000) / 1000) * gridSpacing;
-        const gridStartX = this.width - timePhasePx;
-
-        g.lineStyle(1, 0x333333, 1);
-        for (let x = gridStartX; x >= 0; x -= gridSpacing) {
-            g.moveTo(x, y);
-            g.lineTo(x, y + height - 1);
-        }
-
-        // Цвет теперь передается как аргумент, удаляем старое определение 'const color'
-
-        if (isDiscrete) {
-            let segStartVal = data[data.length - 1];
-            let segStartX = this.width;
-
-            const drawSeg = (x1: number, x2: number, val: number) => {
-                if (x1 <= x2) return;
-                if (val !== 0) {
-                    g.lineStyle(0);
-                    g.beginFill(color, 1); // Используем переданный чередующийся цвет
-                    const h = Math.max(4, height - 6);
-                    g.drawRect(x2, y + (height - h) / 2, x1 - x2, h);
-                    g.endFill();
-                } else {
-                    g.lineStyle(1.5, color, 1); // Используем переданный чередующийся цвет
-                    g.moveTo(x1, y + height - 3);
-                    g.lineTo(x2, y + height - 3);
-                }
-            };
-
-            for (let j = 0; j < data.length; j++) {
-                const x = this.width - (j * 2);
-                if (x < 0) { drawSeg(segStartX, 0, segStartVal); break; }
-                const val = data[data.length - 1 - j];
-                if (val !== segStartVal) {
-                    drawSeg(segStartX, x, segStartVal);
-                    segStartVal = val;
-                    segStartX = x;
-                }
-            }
-            const finalX = this.width - (data.length * 2);
-            if (finalX > 0) drawSeg(segStartX, finalX, segStartVal);
-
-                } else {
-            let started = false;
-            for (let j = 0; j < data.length; j++) {
-                const x = this.width - (j * 2);
-                if (x < 0) break;
-                
-                const maxVal = this.maxValues[geom.channelIndex] || 1100;
-                const rawVal = data[data.length - 1 - j];
-                const absVal = Math.abs(rawVal);
-                
-                // Определяем цвет по знаку: красный для отрицательных, исходный для положительных
-                const lineColor = rawVal < 0 ? 0xFF0000 : color;
-                
-                const val = (absVal / maxVal) * (height - 4);
-                const py = y + (height - 2 - val);
-                
-                g.lineStyle(1, lineColor, 0.9);
-                if (!started) { g.moveTo(x, py); started = true; }
-                else { g.lineTo(x, py); }
-            }
-        }
-    }
-
     forceResize(): void {
         const container = (this.app?.view as HTMLCanvasElement)?.parentElement;
         if (!container) return;
@@ -453,7 +293,6 @@ export class PixiOscilloscope {
         }
     }
 
-    // === ИЗМЕНЕННЫЙ МЕТОД ===
     updateRows(rowCount?: number, types?: string[]): void {
         const model = (window as any).oscModel as MonitorModel;
         if (model) {
@@ -461,74 +300,23 @@ export class PixiOscilloscope {
             this.needsRedraw = true;
             console.log(`✅ DEBUG: updateRows вызван через мостик. Строк в модели: ${model.rowCount}`);
 
-            // === НОВОЕ: Генерация HTML строк для левой панели при загрузке данных ===
             const bodyContainer = document.querySelector('#osc-grid-body') as HTMLElement;
             if (bodyContainer) {
-                bodyContainer.innerHTML = ''; // Очищаем контейнер (на случай если file-loader вставил туда что-то старое)
-                
-                              model.rows.forEach((row: any, i: number) => {
-    const rowDiv = document.createElement('div');
-    rowDiv.className = 'osc-data-row';
-    rowDiv.style.height = `${row.height}px`;
+                generateTableRows(
+                    model,
+                    bodyContainer,
+                    this.containerElement,
+                    this.highlighter,
+                    (rowDiv: HTMLElement) => {
+                        bodyContainer.querySelectorAll('.osc-data-row').forEach((row: Element) => {
+                            (row as HTMLElement).classList.remove('selected');
+                        });
 
-    // Проверка на TBit
-    const isTBit = String(row.signal.dataType || '').trim() === 'TBit';
-    
-    // Для TBit: индикатор (квадрат с I или O), для остальных: Hex = register
-    const hexVal = isTBit 
-        ? '' 
-        : row.signal.register.toString(16).toUpperCase().padStart(4, '0');
-    
-    // Physical: для TBit пусто, для остальных - currentValue
-    const physVal = isTBit 
-        ? '' 
-        : (typeof row.signal.currentValue === 'number' ? row.signal.currentValue.toFixed(2) : String(row.signal.currentValue));
-
-    // Индикатор для дискретных параметров (простая рамка с I или O)
-        // Индикатор для дискретных параметров (простая рамка с I или O)
-    // Добавили id="osc-indicator-${i}" чтобы быстро находить этот элемент
-    const indicatorHtml = isTBit 
-           ? `<div id="osc-ind-${i}" class="discrete-indicator">${row.signal.currentValue === 1 ? 'I' : 'O'}</div>`
-    : '';
-
-        rowDiv.innerHTML = `
-        <div class="col col-name" title="${row.signal.name}">${row.signal.name}</div>
-        <div class="col col-hex" id="osc-hex-${i}">${isTBit ? indicatorHtml : hexVal}</div>
-        <div class="col col-phys" id="osc-phys-${i}">${physVal}</div>
-        <div class="col col-unit">${isTBit ? '' : row.signal.unit}</div>
-        <div class="col col-graph"></div>
-    `;
-
-    // Обработчик клика для выделения строки светло-зеленым цветом
-    rowDiv.addEventListener('click', () => {
-        // Снимаем выделение со всех строк
-        const allRows = bodyContainer.querySelectorAll('.osc-data-row');
-        allRows.forEach((row: Element) => {
-            const el = row as HTMLElement;
-            el.classList.remove('selected');
-        });
-        
-        rowDiv.classList.add('selected');
-        this.selectedRow = rowDiv;
-
-        // Вычисляем позицию строки относительно контейнера осциллографа
-        const rowRect = rowDiv.getBoundingClientRect();
-        const containerRect = this.containerElement.getBoundingClientRect();
-        
-        const top = rowRect.top - containerRect.top;
-        const height = rowRect.height;
-        
-        // Двигаем и показываем слой подсветки
-        this.highlighter.style.display = 'block';
-        this.highlighter.style.top = `${top}px`;
-        this.highlighter.style.height = `${height}px`;
-    });
-
-    bodyContainer.appendChild(rowDiv);
-});
+                        rowDiv.classList.add('selected');
+                        this.selectedRow = rowDiv;
+                    }
+                );
             }
-            // ================================================================
-
         } else {
             console.warn('⚠️ updateRows вызван, но oscModel еще не создан');
         }
