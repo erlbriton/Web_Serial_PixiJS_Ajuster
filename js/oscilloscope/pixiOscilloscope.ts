@@ -2,11 +2,11 @@
 import { MonitorModel } from "../model/monitorModel.js";
 import { ScopeLayout, RowGeometry } from "../model/scopeLayout.js";
 import { calculateMaxValues } from "./parts_pixiOscilloscope/dataProcessor.js";
-import { updateScrollbar, handleWheelScroll } from "./parts_pixiOscilloscope/scrollbar.js";
+import { handleWheelScroll } from "./parts_pixiOscilloscope/scrollbar.js"; // Убрали updateScrollbar
 import { drawWaveform as drawWaveformExternal } from "./parts_pixiOscilloscope/waveformRenderer.js";
-import { handleCanvasClick } from "./parts_pixiOscilloscope/canvasInteraction.js";
+import { handleCanvasClick, createHighlighter } from "./parts_pixiOscilloscope/canvasInteraction.js";
 import { generateTableRows } from "./parts_pixiOscilloscope/tableUI.js";
-import { initPixiApp } from "./parts_pixiOscilloscope/pixiInit.js";
+import { initPixiApp, setupResizeObserver } from "./parts_pixiOscilloscope/pixiInit.js"; // Добавлен setupResizeObserver
 import { initScrollbar } from "./parts_pixiOscilloscope/scrollbarDom.js";
 
 interface RingBuffer {
@@ -29,9 +29,8 @@ export class PixiOscilloscope {
 
     private scrollbarTrack: HTMLDivElement;
     private scrollbarThumb: HTMLDivElement;
-    private isDraggingScrollbar: boolean = false;
-    private scrollbarDragStartY: number = 0;
-    private scrollbarDragStartScroll: number = 0;
+    
+    // Свойства drag удалены, так как они инкапсулированы в scrollbarDom.ts
 
     private needsRedraw: boolean = true;
     private lastBuffers?: any[];
@@ -63,10 +62,9 @@ export class PixiOscilloscope {
             0x0099FF, 0xFF0088, 0xADFF2F, 0xFFFFFF, 0x7B68EE
         ];
 
-        // === 1. Создаем подсветку (нужна для скроллбара) ===
-        this.highlighter = document.createElement('div');
-        this.highlighter.style.cssText = 'position:absolute; left:0; width:100%; background-color:rgba(152, 251, 152, 0.4); pointer-events:none; z-index:5; display:none;';
-        container.appendChild(this.highlighter);
+        // === 1. Создаем подсветку через вынесенную функцию ===
+        this.highlighter = createHighlighter(container);
+        // =====================================================
 
         // === 2. Находим таблицу (нужна для скроллбара) ===
         const oscContainer = container.closest('.osc-container');
@@ -86,13 +84,24 @@ export class PixiOscilloscope {
             () => this.scrollY,
             () => this.height,
             () => this.selectedRow,
-            // Setters (прямой доступ к свойствам класса)
+            // Setters
             (y: number) => { this.scrollY = y; },
             () => { this.needsRedraw = true; }
         );
         this.scrollbarTrack = scrollbar.track;
         this.scrollbarThumb = scrollbar.thumb;
         // ===========================================================
+
+        // === 4. Настройка ResizeObserver через вынесенный модуль ===
+        setupResizeObserver(container, this.app, {
+            width: this.width,
+            height: this.height,
+            needsRedraw: this.needsRedraw,
+            setWidth: (w: number) => { this.width = w; },
+            setHeight: (h: number) => { this.height = h; },
+            setNeedsRedraw: () => { this.needsRedraw = true; }
+        });
+        // ==========================================================
 
         this.app.ticker.add(() => {
             if (this.needsRedraw) {
@@ -116,18 +125,6 @@ export class PixiOscilloscope {
             this.needsRedraw = result.needsRedraw;
         }, { passive: false });
 
-        new ResizeObserver((entries) => {
-            for (const entry of entries) {
-                const { width, height } = entry.contentRect;
-                if (width > 0 && height > 0) {
-                    this.width = width;
-                    this.height = height;
-                    this.app.renderer.resize(width, height);
-                    this.needsRedraw = true;
-                }
-            }
-        }).observe(container);
-
         // === Обработчик клика на канвас ===
         (this.app.view as HTMLCanvasElement).addEventListener('click', (e: MouseEvent) => {
             const model = (window as any).oscModel as MonitorModel;
@@ -142,10 +139,11 @@ export class PixiOscilloscope {
                 this.containerElement.getBoundingClientRect(),
                 model,
                 selectedRef,
-                this.highlighter
+                this.highlighter,
+                (newSelectedRow: HTMLElement | null) => {
+                    this.selectedRow = newSelectedRow;
+                }
             );
-
-            this.selectedRow = selectedRef.current;
         });
 
         this.needsRedraw = true;

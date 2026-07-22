@@ -44,3 +44,29 @@ export function initPixiApp(
 
     return { app, stageContainer, backgroundGraphics, waveformGraphics };
 }
+
+// Новая функция для настройки ResizeObserver
+export function setupResizeObserver(
+    container: HTMLElement,
+    app: any,
+    stateRef: { 
+        width: number; 
+        height: number; 
+        needsRedraw: boolean;
+        setWidth: (w: number) => void;
+        setHeight: (h: number) => void;
+        setNeedsRedraw: () => void;
+    }
+): void {
+    new ResizeObserver((entries) => {
+        for (const entry of entries) {
+            const { width, height } = entry.contentRect;
+            if (width > 0 && height > 0) {
+                stateRef.setWidth(width);
+                stateRef.setHeight(height);
+                app.renderer.resize(width, height);
+                stateRef.setNeedsRedraw();
+            }
+        }
+    }).observe(container);
+}
