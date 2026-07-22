@@ -9,6 +9,7 @@ import { RingBuffer } from './oscilloscope/ringBuffer.js';
 import { PixiOscilloscope } from './oscilloscope/pixiOscilloscope.js';
 import { createOscilloscopeView } from './views/oscilloscopeView.js';
 import { updateDeviceRegisters as realUpdateDeviceRegisters } from './serial/device_updater.js';
+import { initLayout } from './ui/layout.js';
 import { 
     serialManager, 
     readLoop as realReadLoop,          
@@ -173,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     };
 
-    initUI({
+       initUI({
         serial: serialAdapter,
         appState, 
         parser: appState.modbusParser, 
@@ -186,6 +187,12 @@ document.addEventListener('DOMContentLoaded', () => {
         showIdModal: (msg: string) => alert(msg), 
         updateDeviceRegisters: realUpdateDeviceRegisters
     });
+    
+    // Инициализация ресайзеров таблицы (вызываем после создания UI)
+    setTimeout(() => {
+        initLayout();
+        console.log("✅ Ресайзеры таблицы инициализированы");
+    }, 100);
     
     console.log("✅ main.ts успешно завершен, UI инициализирован.");
 });
