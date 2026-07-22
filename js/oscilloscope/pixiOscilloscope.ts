@@ -7,6 +7,7 @@ import { drawWaveform as drawWaveformExternal } from "./parts_pixiOscilloscope/w
 import { handleCanvasClick } from "./parts_pixiOscilloscope/canvasInteraction.js";
 import { generateTableRows } from "./parts_pixiOscilloscope/tableUI.js";
 import { initPixiApp } from "./parts_pixiOscilloscope/pixiInit.js";
+import { initScrollbar } from "./parts_pixiOscilloscope/scrollbarDom.js";
 
 interface RingBuffer {
     getLinearData: () => number[];
@@ -54,7 +55,7 @@ export class PixiOscilloscope {
         this.stageContainer = pixiInit.stageContainer;
         this.backgroundGraphics = pixiInit.backgroundGraphics;
         this.waveformGraphics = pixiInit.waveformGraphics;
-                this.layout = new ScopeLayout();
+        this.layout = new ScopeLayout();
         // =======================================================
 
         this.brightColors = [
@@ -62,78 +63,36 @@ export class PixiOscilloscope {
             0x0099FF, 0xFF0088, 0xADFF2F, 0xFFFFFF, 0x7B68EE
         ];
 
-        this.scrollbarTrack = document.createElement('div');
-        this.scrollbarTrack.style.cssText = 'position:absolute; right:2px; top:2px; bottom:2px; width:8px; background:rgba(255,255,255,0.1); border-radius:4px; z-index:50; cursor:pointer;';
-        this.scrollbarThumb = document.createElement('div');
-        this.scrollbarThumb.style.cssText = 'position:absolute; left:0; top:0; width:100%; background:rgba(0, 85, 255, 0.6); border-radius:4px; pointer-events:none;';
-        this.scrollbarTrack.appendChild(this.scrollbarThumb);
-        container.appendChild(this.scrollbarTrack);
+        // === 1. Создаем подсветку (нужна для скроллбара) ===
+        this.highlighter = document.createElement('div');
+        this.highlighter.style.cssText = 'position:absolute; left:0; width:100%; background-color:rgba(152, 251, 152, 0.4); pointer-events:none; z-index:5; display:none;';
+        container.appendChild(this.highlighter);
 
-        this.scrollbarTrack.addEventListener('mousedown', (e: MouseEvent) => {
-            this.isDraggingScrollbar = true;
-            this.scrollbarDragStartY = e.clientY;
-            this.scrollbarDragStartScroll = this.scrollY;
-            this.scrollbarThumb.style.background = 'rgba(0, 85, 255, 0.9)';
-            e.preventDefault();
-        });
-
-        document.addEventListener('mousemove', (e: MouseEvent) => {
-            if (!this.isDraggingScrollbar) return;
-
-            const model = (window as any).oscModel as MonitorModel;
-            if (!model) return;
-
-            const totalHeight = model.rows.reduce((sum: number, row: any) => sum + row.height, 0);
-            const maxScroll = Math.max(0, totalHeight - this.height);
-
-            const deltaY = e.clientY - this.scrollbarDragStartY;
-            const trackHeight = this.scrollbarTrack.offsetHeight;
-            const scrollRatio = maxScroll / trackHeight;
-
-            this.scrollY = this.scrollbarDragStartScroll + (deltaY * scrollRatio);
-            this.scrollY = Math.max(0, Math.min(this.scrollY, maxScroll));
-
-            this.stageContainer.y = -this.scrollY;
-            updateScrollbar(this.scrollY, this.height, this.scrollbarTrack, this.scrollbarThumb);
-
-            if (this.tableWrapper) {
-                this.tableWrapper.scrollTop = this.scrollY;
-            }
-
-            this.needsRedraw = true;
-        });
-
-        document.addEventListener('mouseup', () => {
-            if (this.isDraggingScrollbar) {
-                this.isDraggingScrollbar = false;
-                this.scrollbarThumb.style.background = 'rgba(0, 85, 255, 0.6)';
-            }
-        });
-
+        // === 2. Находим таблицу (нужна для скроллбара) ===
         const oscContainer = container.closest('.osc-container');
         if (oscContainer) {
             this.tableWrapper = oscContainer.querySelector('.osc-table-wrapper') as HTMLElement;
-
-            this.tableWrapper.addEventListener('scroll', () => {
-                this.scrollY = this.tableWrapper!.scrollTop;
-                this.stageContainer.y = -this.scrollY;
-                updateScrollbar(this.scrollY, this.height, this.scrollbarTrack, this.scrollbarThumb);
-                this.needsRedraw = true;
-                
-                if (this.highlighter && this.selectedRow) {
-                    const rowRect = this.selectedRow.getBoundingClientRect();
-                    const containerRect = this.containerElement.getBoundingClientRect();
-                    const top = rowRect.top - containerRect.top;
-                    
-                    if (top >= 0 && top < this.height) {
-                        this.highlighter.style.display = 'block';
-                        this.highlighter.style.top = `${top}px`;
-                    } else {
-                        this.highlighter.style.display = 'none';
-                    }
-                }
-            }, { passive: true });
         }
+        // =================================================
+
+        // === 3. Создание и настройка скроллбара через вынесенный модуль ===
+        const scrollbar = initScrollbar(
+            container,
+            this.containerElement,
+            this.stageContainer!,
+            this.tableWrapper,
+            this.highlighter,
+            // Getters
+            () => this.scrollY,
+            () => this.height,
+            () => this.selectedRow,
+            // Setters (прямой доступ к свойствам класса)
+            (y: number) => { this.scrollY = y; },
+            () => { this.needsRedraw = true; }
+        );
+        this.scrollbarTrack = scrollbar.track;
+        this.scrollbarThumb = scrollbar.thumb;
+        // ===========================================================
 
         this.app.ticker.add(() => {
             if (this.needsRedraw) {
@@ -169,10 +128,7 @@ export class PixiOscilloscope {
             }
         }).observe(container);
 
-        this.highlighter = document.createElement('div');
-        this.highlighter.style.cssText = 'position:absolute; left:0; width:100%; background-color:rgba(152, 251, 152, 0.4); pointer-events:none; z-index:5; display:none;';
-        container.appendChild(this.highlighter);
-
+        // === Обработчик клика на канвас ===
         (this.app.view as HTMLCanvasElement).addEventListener('click', (e: MouseEvent) => {
             const model = (window as any).oscModel as MonitorModel;
             if (!model) return;
