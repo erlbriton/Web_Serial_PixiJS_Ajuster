@@ -8,8 +8,8 @@ export function drawWaveform(
     isDiscrete: boolean,
     color: number,
     width: number,
-    maxValues: any[], // 7-й аргумент (сохраняем для правильной позиции)
-    row?: any         // 8-й аргумент — это объект строки со шкалой
+    maxValues: any[], // 7-й аргумент (сохраняем для совместимости вызова)
+    row?: any         // 8-й аргумент — объект строки со шкалой
 ): void {
     const data = Array.from(dataRaw);
     const { y, height } = geom;
@@ -62,12 +62,16 @@ export function drawWaveform(
         let displayMax = 100;
 
         if (isAuto) {
-            // Пытаемся взять максимум из общего массива maxValues
-            let peak = (maxValues && row && row.index !== undefined) ? maxValues[row.index] : undefined;
-            
-            // Если maxValues еще пустой для этой строки, берем максимум прямо из текущего буфера данных (убирает прыжок на старте!)
-            if (peak === undefined || peak <= 0) {
-                peak = data.length > 0 ? Math.max(...data.map(Math.abs)) : 100;
+            // Расчёт максимума ТОЛЬКО из точек, видимых на экране (x >= 0)
+            const visibleCount = Math.min(data.length, Math.ceil(width / 2));
+            let peak = 0;
+
+            if (visibleCount > 0) {
+                const startIndex = data.length - visibleCount;
+                for (let k = startIndex; k < data.length; k++) {
+                    const absVal = Math.abs(data[k]);
+                    if (absVal > peak) peak = absVal;
+                }
             }
             
             displayMax = peak > 0 ? peak * 1.1 : 100;

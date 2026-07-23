@@ -104,7 +104,14 @@ export function handleValidPacket(
                     let min = Infinity;
                     let max = -Infinity;
 
-                    for (let k = 0; k < data.length; k++) {
+                    // --- ИСПРАВЛЕНИЕ: Расчёт строго по ТОЧКАМ НА ЭКРАНЕ ---
+                    // НЕ используем view.maxPoints (он равен 2500 — это емкость буфера!).
+                    // Каждая точка занимает 2px, поэтому на экране умещается (width / 2) точек.
+                    const screenWidth = view?.width || view?.pixiApp?.screen?.width || 800;
+                    const visiblePoints = Math.ceil(screenWidth / 2);
+                    const startIndex = Math.max(0, data.length - visiblePoints);
+
+                    for (let k = startIndex; k < data.length; k++) {
                         const v = data[k];
                         if (v !== undefined && v !== null && !isNaN(v)) {
                             if (v < min) min = v;
@@ -164,5 +171,6 @@ export function handleValidPacket(
             buffers[i]?.push(0);
         }
     }
+
     view.draw(buffers); 
 }

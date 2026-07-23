@@ -1,6 +1,9 @@
 // js/oscilloscope/parts_pixiOscilloscope/dataProcessor.ts
 
 export function calculateMaxValues(buffers: any[], maxValuesArray: number[]): void {
+    // Размер окна: берем только последние 200 точек (свежие данные на экране)
+    const WINDOW_SIZE = 200;
+
     for (let i = 0; i < buffers.length; i++) {
         const buffer = buffers[i];
         if (!buffer) {
@@ -11,7 +14,10 @@ export function calculateMaxValues(buffers: any[], maxValuesArray: number[]): vo
         const data = buffer.getLinearData();
         let maxVal = 0;
         
-        for (let j = 0; j < data.length; j++) {
+        // Ограничиваем поиск хвостом массива (последними WINDOW_SIZE точками)
+        const startIndex = Math.max(0, data.length - WINDOW_SIZE);
+
+        for (let j = startIndex; j < data.length; j++) {
             const absVal = Math.abs(data[j]);
             if (absVal > maxVal) {
                 maxVal = absVal;
