@@ -56,11 +56,23 @@ export function drawWaveform(
         if (finalX > 0) drawSeg(segStartX, finalX, segStartVal);
 
     } else {
-        // Читаем готовые границы строго из модели строки
+        // Проверяем, включено ли автомасштабирование (по умолчанию true, если не задано)
+        const isAuto = row?.autoScale ?? true;
         let displayMin = 0;
         let displayMax = 100;
 
-        if (row && row.scale) {
+        if (isAuto) {
+            // Пытаемся взять максимум из общего массива maxValues
+            let peak = (maxValues && row && row.index !== undefined) ? maxValues[row.index] : undefined;
+            
+            // Если maxValues еще пустой для этой строки, берем максимум прямо из текущего буфера данных (убирает прыжок на старте!)
+            if (peak === undefined || peak <= 0) {
+                peak = data.length > 0 ? Math.max(...data.map(Math.abs)) : 100;
+            }
+            
+            displayMax = peak > 0 ? peak * 1.1 : 100;
+            displayMin = 0;
+        } else if (row && row.scale) {
             displayMin = row.scale.displayMin;
             displayMax = row.scale.displayMax;
         }

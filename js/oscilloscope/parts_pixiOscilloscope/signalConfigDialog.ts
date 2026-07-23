@@ -1,8 +1,9 @@
 // js/oscilloscope/parts_pixiOscilloscope/signalConfigDialog.ts
 import { MonitorRow } from "../../model/monitorRow.js";
 
-export interface ExtendedMonitorRow extends MonitorRow {
+export interface ExtendedMonitorRow extends Omit<MonitorRow, 'autoScale'> {
     autoScale?: boolean;
+    maxScale?: number;
 }
 
 export function openSignalConfigDialog(
@@ -10,6 +11,15 @@ export function openSignalConfigDialog(
     onSave: () => void
 ): void {
     const row = rowInput as ExtendedMonitorRow;
+
+    // --- КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ ---
+    // Используем maxScale как маркер первого открытия настроек для этой строки.
+    // Если его нет, значит строку мы еще не настраивали. Принудительно ставим "Авто", 
+    // перебивая любой false, который мог прийти из базовой модели инициализации.
+    if (row.maxScale === undefined) {
+        row.autoScale = true;
+        row.maxScale = 1; // Задаем сразу базовое значение, чтобы при следующем открытии маркер сработал
+    }
 
     const existing = document.getElementById('osc-signal-config-dialog');
     if (existing) existing.remove();
@@ -28,9 +38,9 @@ export function openSignalConfigDialog(
     const disabledAttr = isTBit ? 'disabled' : '';
     const inputStyle = `width:100%; background:${isTBit ? '#111' : '#1a1a1a'}; border:1px solid #444; color:${isTBit ? '#888' : '#fff'}; padding:6px; box-sizing:border-box;`;
     
-    const isAuto = row.autoScale !== false;
+    // Теперь статус читается строго и предсказуемо
+    const isAuto = row.autoScale === true;
 
-    // Орачиваем всё в <form>, чтобы штатно обрабатывать Enter
     dialog.innerHTML = `
         <form id="osc-cfg-form" onsubmit="return false;" style="margin:0; padding:0;">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid #444; padding-bottom:8px;">
@@ -40,7 +50,7 @@ export function openSignalConfigDialog(
             
             <div style="margin-bottom:10px;">
                 <label style="display:block; font-size:11px; color:#aaa; margin-bottom:4px;">Обозначение:</label>
-                <input type="text" id="osc-cfg-name" value="${signal.name}" ${disabledAttr} style="${inputStyle}">
+                <input type="text" id="osc-cfg-name" value="${signal.name || ''}" ${disabledAttr} style="${inputStyle}">
             </div>
 
             <div style="margin-bottom:10px;">
@@ -60,7 +70,7 @@ export function openSignalConfigDialog(
                 </div>
                 <div style="flex:1;">
                     <label style="display:block; font-size:11px; color:#aaa; margin-bottom:4px;">Высота (px):</label>
-                    <input type="number" id="osc-cfg-height" value="${row.height}" min="10" max="200" ${disabledAttr} style="${inputStyle}">
+                    <input type="number" id="osc-cfg-height" value="${row.height || 20}" min="10" max="200" ${disabledAttr} style="${inputStyle}">
                 </div>
             </div>
 
@@ -76,7 +86,6 @@ export function openSignalConfigDialog(
         </form>
     `;
 
-    // Заполняем textarea через value, чтобы избежать проблем со спецсимволами
     const descTextarea = dialog.querySelector('#osc-cfg-desc') as HTMLTextAreaElement;
     if (descTextarea) {
         descTextarea.value = signal.description || '';
@@ -115,27 +124,24 @@ export function openSignalConfigDialog(
         const heightInput = document.getElementById('osc-cfg-height') as HTMLInputElement;
         const scaleInput = document.getElementById('osc-cfg-scale') as HTMLInputElement;
 
-        // Единая функция сохранения
         const saveAndClose = () => {
             signal.name = nameInput.value;
             signal.description = descInput.value;
             signal.multiplier = parseFloat(scaleInput.value) || 1;
             
             row.height = parseInt(heightInput.value) || 20;
-            row.autoScale = autoCheckbox.checked;
+            row.autoScale = autoCheckbox.checked; 
             row.maxScale = parseFloat(maxInput.value) || 1; 
 
             onSave(); 
             closeDialog();
         };
 
-        // 1. Сохранение при отправке формы (Enter в полях ввода)
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             saveAndClose();
         });
 
-        // 2. Отдельная обработка Enter (Enter и NumpadEnter) на всём диалоге
         dialog.addEventListener('keydown', (e: KeyboardEvent) => {
             if (e.key === 'Enter' || e.code === 'NumpadEnter') {
                 e.preventDefault();
