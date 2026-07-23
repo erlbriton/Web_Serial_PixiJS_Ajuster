@@ -1,14 +1,12 @@
 // js/oscilloscope/pixiOscilloscope.ts
 import { MonitorModel } from "../model/monitorModel.js";
-import { ScopeLayout, RowGeometry } from "../model/scopeLayout.js";
-import { calculateMaxValues } from "./parts_pixiOscilloscope/dataProcessor.js";
-import { handleWheelScroll } from "./parts_pixiOscilloscope/scrollbar.js"; // Убрали updateScrollbar
-import { drawWaveform as drawWaveformExternal } from "./parts_pixiOscilloscope/waveformRenderer.js";
+import { ScopeLayout } from "../model/scopeLayout.js";
+import { handleWheelScroll } from "./parts_pixiOscilloscope/scrollbar.js";
 import { handleCanvasClick, handleCanvasContextMenu, createHighlighter } from "./parts_pixiOscilloscope/canvasInteraction.js";
 import { generateTableRows } from "./parts_pixiOscilloscope/tableUI.js";
-import { initPixiApp, setupResizeObserver } from "./parts_pixiOscilloscope/pixiInit.js"; // Добавлен setupResizeObserver
+import { initPixiApp, setupResizeObserver } from "./parts_pixiOscilloscope/pixiInit.js";
 import { initScrollbar } from "./parts_pixiOscilloscope/scrollbarDom.js";
-
+import { renderOscilloscope } from "./parts_pixiOscilloscope/rendererManager.js";
 
 interface RingBuffer {
     getLinearData: () => number[];
@@ -31,8 +29,6 @@ export class PixiOscilloscope {
     private scrollbarTrack: HTMLDivElement;
     private scrollbarThumb: HTMLDivElement;
     
-    // Свойства drag удалены, так как они инкапсулированы в scrollbarDom.ts
-
     private needsRedraw: boolean = true;
     private lastBuffers?: any[];
     private maxValues: number[] = [];
@@ -49,51 +45,40 @@ export class PixiOscilloscope {
         this.width = rect.width || 800;
         this.height = rect.height || 600;
 
-        // === Инициализация PIXI вынесена в отдельный модуль ===
         const pixiInit = initPixiApp(container, this.width, this.height, 0x000000);
         this.app = pixiInit.app;
         this.stageContainer = pixiInit.stageContainer;
         this.backgroundGraphics = pixiInit.backgroundGraphics;
         this.waveformGraphics = pixiInit.waveformGraphics;
         this.layout = new ScopeLayout();
-        // =======================================================
 
         this.brightColors = [
             0x00FF00, 0x00FFFF, 0xFF00FF, 0xFFFF00, 0xFF4500,
             0x0099FF, 0xFF0088, 0xADFF2F, 0xFFFFFF, 0x7B68EE
         ];
 
-        // === 1. Создаем подсветку через вынесенную функцию ===
         this.highlighter = createHighlighter(container);
-        // =====================================================
 
-        // === 2. Находим таблицу (нужна для скроллбара) ===
         const oscContainer = container.closest('.osc-container');
         if (oscContainer) {
             this.tableWrapper = oscContainer.querySelector('.osc-table-wrapper') as HTMLElement;
         }
-        // =================================================
 
-        // === 3. Создание и настройка скроллбара через вынесенный модуль ===
         const scrollbar = initScrollbar(
             container,
             this.containerElement,
             this.stageContainer!,
             this.tableWrapper,
             this.highlighter,
-            // Getters
             () => this.scrollY,
             () => this.height,
             () => this.selectedRow,
-            // Setters
             (y: number) => { this.scrollY = y; },
             () => { this.needsRedraw = true; }
         );
         this.scrollbarTrack = scrollbar.track;
         this.scrollbarThumb = scrollbar.thumb;
-        // ===========================================================
 
-        // === 4. Настройка ResizeObserver через вынесенный модуль ===
         setupResizeObserver(container, this.app, {
             width: this.width,
             height: this.height,
@@ -102,7 +87,6 @@ export class PixiOscilloscope {
             setHeight: (h: number) => { this.height = h; },
             setNeedsRedraw: () => { this.needsRedraw = true; }
         });
-        // ==========================================================
 
         this.app.ticker.add(() => {
             if (this.needsRedraw) {
@@ -111,6 +95,7 @@ export class PixiOscilloscope {
             }
         });
 
+        // Обработчик колеса прокрутки на контейнере
         container.addEventListener('wheel', (e: WheelEvent) => {
             e.preventDefault();
             const result = handleWheelScroll(
@@ -126,51 +111,58 @@ export class PixiOscilloscope {
             this.needsRedraw = result.needsRedraw;
         }, { passive: false });
 
-        // === Обработчик клика на канвас (левая кнопка) ===
-        (this.app.view as HTMLCanvasElement).addEventListener('click', (e: MouseEvent) => {
-            const model = (window as any).oscModel as MonitorModel;
-            if (!model) return;
+        // Надежный поиск элемента canvas внутри контейнера или через app.view
+        const canvasElement = container.querySelector('canvas') || (this.app?.view as HTMLCanvasElement);
 
-            const selectedRef = { current: this.selectedRow };
+        if (canvasElement) {
+            // Обработчик клика на канвас (левая кнопка)
+            canvasElement.addEventListener('click', (e: MouseEvent) => {
+                const model = (window as any).oscModel as MonitorModel;
+                if (!model) return;
 
-            handleCanvasClick(
-                e,
-                this.app.view as HTMLCanvasElement,
-                this.scrollY,
-                this.containerElement.getBoundingClientRect(),
-                model,
-                selectedRef,
-                this.highlighter,
-                (newSelectedRow: HTMLElement | null) => {
-                    this.selectedRow = newSelectedRow;
-                }
-            );
-        });
+                const selectedRef = { current: this.selectedRow };
 
-        // === Обработчик правого клика на канвас (контекстное меню) ===
-        (this.app.view as HTMLCanvasElement).addEventListener('contextmenu', (e: MouseEvent) => {
-            const model = (window as any).oscModel as MonitorModel;
-            if (!model) return;
+                handleCanvasClick(
+                    e,
+                    canvasElement,
+                    this.scrollY,
+                    this.containerElement.getBoundingClientRect(),
+                    model,
+                    selectedRef,
+                    this.highlighter,
+                    (newSelectedRow: HTMLElement | null) => {
+                        this.selectedRow = newSelectedRow;
+                    }
+                );
+            });
 
-            const selectedRef = { current: this.selectedRow };
+            // Обработчик правого клика на канвас (контекстное меню)
+            canvasElement.addEventListener('contextmenu', (e: MouseEvent) => {
+                const model = (window as any).oscModel as MonitorModel;
+                if (!model) return;
 
-            handleCanvasContextMenu(
-                e,
-                this.app.view as HTMLCanvasElement,
-                this.scrollY,
-                this.containerElement.getBoundingClientRect(),
-                model,
-                selectedRef,
-                this.highlighter,
-                (newSelectedRow: HTMLElement | null) => {
-                    this.selectedRow = newSelectedRow;
-                },
-                () => {
-                    this.updateLayout(model);
-                    this.updateRows();
-                }
-            );
-        });
+                const selectedRef = { current: this.selectedRow };
+
+                handleCanvasContextMenu(
+                    e,
+                    canvasElement,
+                    this.scrollY,
+                    this.containerElement.getBoundingClientRect(),
+                    model,
+                    selectedRef,
+                    this.highlighter,
+                    (newSelectedRow: HTMLElement | null) => {
+                        this.selectedRow = newSelectedRow;
+                    },
+                    () => {
+                        this.updateLayout(model);
+                        this.updateRows();
+                    }
+                );
+            });
+        } else {
+            console.error("❌ PixiOscilloscope: Не удалось найти элемент canvas для назначения обработчиков событий!");
+        }
 
         this.needsRedraw = true;
     }
@@ -185,61 +177,17 @@ export class PixiOscilloscope {
             this.lastBuffers = buffers;
         }
 
-        const model = (window as any).oscModel as MonitorModel;
-        if (!model) return;
-
-        const visibleRows = this.layout.getVisibleRows(this.scrollY, this.height);
-        if (this.lastBuffers) {
-            calculateMaxValues(this.lastBuffers, this.maxValues);
-        }
-
-        let visibleIndex = 0;
-        let discreteCounter = 0;
-
-        for (const rowGeom of visibleRows) {
-            const bg = this.backgroundGraphics[visibleIndex];
-            const wave = this.waveformGraphics[visibleIndex];
-
-            if (!bg || !wave) break;
-
-            const data = this.lastBuffers && this.lastBuffers[rowGeom.channelIndex]
-                ? this.lastBuffers[rowGeom.channelIndex].getLinearData()
-                : null;
-
-            if (data && data.length > 1) {
-                bg.visible = true;
-                wave.visible = true;
-
-                bg.clear();
-                wave.clear();
-
-                bg.beginFill(0x1a1a1a);
-                bg.drawRect(0, rowGeom.y, this.width, rowGeom.height);
-                bg.endFill();
-
-                const currentRow = model.rows[rowGeom.channelIndex];
-                const isDiscrete = currentRow && String(currentRow.signal.dataType || '').trim() === 'TBit';
-
-                const waveColor = isDiscrete 
-                    ? ((discreteCounter % 2 === 0) ? 0x00BFFF : 0x8B4513) 
-                    : this.brightColors[rowGeom.channelIndex % 10];
-                
-                if (isDiscrete) {
-                    discreteCounter++;
-                }
-
-                drawWaveformExternal(wave, data, rowGeom, isDiscrete, waveColor, this.width, this.maxValues, currentRow);
-            } else {
-                bg.visible = false;
-                wave.visible = false;
-            }
-            visibleIndex++;
-        }
-
-        for (let j = visibleIndex; j < this.backgroundGraphics.length; j++) {
-            this.backgroundGraphics[j].visible = false;
-            this.waveformGraphics[j].visible = false;
-        }
+        renderOscilloscope(
+            this.lastBuffers,
+            this.layout,
+            this.scrollY,
+            this.height,
+            this.width,
+            this.maxValues,
+            this.backgroundGraphics,
+            this.waveformGraphics,
+            this.brightColors
+        );
     }
 
     forceResize(): void {

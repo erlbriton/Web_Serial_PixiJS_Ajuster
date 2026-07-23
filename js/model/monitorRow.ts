@@ -1,28 +1,57 @@
 // js/model/monitorRow.ts
 import { MonitorSignal } from "./monitorSignal.js";
+import { DisplayScale } from "./displayScale.js";
 
 export class MonitorRow {
     /** Уникальный идентификатор строки */
     readonly id: string;
-    /** Сигнал, который отображается в строке */
+    
+    /** Главный отображаемый сигнал */
     signal: MonitorSignal;
+    
     /** Дополнительные сигналы для режима Overlay */
-    overlays: MonitorSignal[] = []; // Инициализируем сразу, чтобы не было undefined
+    overlays: MonitorSignal[] = [];
+    
+    /** Объект управления шкалой и отображением */
+    scale: DisplayScale;
+    
     /** Высота строки в пикселях */
     height: number;
+    
     /** Показывать строку */
     visible: boolean;
+    
     /** Строка выделена пользователем */
     selected: boolean;
-    /** Максимальное значение шкалы для этой строки (в делениях) */
-    maxScale: number; 
 
-    constructor(signal: MonitorSignal) {
+    constructor(signal: MonitorSignal, baseMin = 0, baseMax = 100) {
         this.id = signal.id;
         this.signal = signal;
+        this.scale = new DisplayScale(baseMin, baseMax);
         this.height = 20;
         this.visible = true;
         this.selected = false;
-        this.maxScale = 1; // Значение по умолчанию
+    }
+
+    // === Прокси-свойства для обратной совместимости с рендерером графиков ===
+    get min(): number {
+        return this.scale.displayMin;
+    }
+    set min(val: number) {
+        this.scale.displayMin = val;
+    }
+
+    get max(): number {
+        return this.scale.displayMax;
+    }
+    set max(val: number) {
+        this.scale.displayMax = val;
+    }
+
+    get autoScale(): boolean {
+        return this.scale.auto;
+    }
+    set autoScale(val: boolean) {
+        this.scale.auto = val;
     }
 }

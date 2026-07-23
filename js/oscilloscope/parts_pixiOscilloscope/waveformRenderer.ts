@@ -8,8 +8,8 @@ export function drawWaveform(
     isDiscrete: boolean,
     color: number,
     width: number,
-    maxValues: number[],
-    row?: any
+    maxValues: any[], // 7-й аргумент (сохраняем для правильной позиции)
+    row?: any         // 8-й аргумент — это объект строки со шкалой
 ): void {
     const data = Array.from(dataRaw);
     const { y, height } = geom;
@@ -56,18 +56,21 @@ export function drawWaveform(
         if (finalX > 0) drawSeg(segStartX, finalX, segStartVal);
 
     } else {
-        // 1. Определение максимума
-        let maxVal = maxValues[geom.channelIndex];
-        
-        // Если ручной режим выключил "Авто" и задано корректное значение
-        if (row && row.autoScale === false && typeof row.maxScale === 'number' && row.maxScale > 0) {
-            maxVal = row.maxScale;
+        // Читаем готовые границы строго из модели строки
+        let displayMin = 0;
+        let displayMax = 100;
+
+        if (row && row.scale) {
+            displayMin = row.scale.displayMin;
+            displayMax = row.scale.displayMax;
         }
 
-        // 2. Защита от деления на 0, NaN и Infinity
-        if (!maxVal || maxVal <= 0 || !isFinite(maxVal)) {
-            maxVal = 1;
-        }
+        const span = displayMax - displayMin;
+        if (span <= 0) return;
+
+        const usableHeight = height - 4;
+        const minY = y + 2;
+        const maxY = y + height - 2;
 
         let started = false;
         for (let j = 0; j < data.length; j++) {
@@ -75,16 +78,11 @@ export function drawWaveform(
             if (x < 0) break;
             
             const rawVal = data[data.length - 1 - j];
-            const absVal = Math.abs(rawVal);
-            
             const lineColor = rawVal < 0 ? 0xFF0000 : color;
             
-            const val = (absVal / maxVal) * (height - 4);
-            let py = y + (height - 2 - val);
+            const normalized = (rawVal - displayMin) / span;
+            let py = y + height - 2 - normalized * usableHeight;
 
-            // 3. Ограничение (обрезка) точки Y строго в пределах строки
-            const minY = y + 2;                  // Верхняя граница строки
-            const maxY = y + height - 2;         // Нижняя граница строки
             py = Math.max(minY, Math.min(maxY, py));
             
             g.lineStyle(1, lineColor, 0.9);

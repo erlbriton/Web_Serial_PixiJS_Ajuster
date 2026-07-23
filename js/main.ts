@@ -11,7 +11,6 @@ import { createOscilloscopeView } from './views/oscilloscopeView.js';
 import { updateDeviceRegisters as realUpdateDeviceRegisters } from './serial/device_updater.js';
 import { initLayout } from './ui/layout.js';
 import { 
-    serialManager, 
     readLoop as realReadLoop,          
     executeDeviceIdentification as realExecuteId 
 } from './serial-actions.js'; 
