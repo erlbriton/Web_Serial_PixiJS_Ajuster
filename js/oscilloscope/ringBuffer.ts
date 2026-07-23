@@ -23,23 +23,21 @@ export class RingBuffer {
         }
     }
 
-        // Получение линейного массива от старых точек к самым новым
+    // Оптимизированное разворачивание кольцевого буфера через быстрое копирование кусков памяти
     getLinearData(): Float32Array {
         if (this.totalStored === 0) return new Float32Array(0);
         
         const result = new Float32Array(this.totalStored);
-        let readIndex = this.totalStored < this.capacity ? 0 : this.writePointer;
         
-        for (let i = 0; i < this.totalStored; i++) {
-            result[i] = this.buffer[readIndex];
-            readIndex = (readIndex + 1) % this.capacity;
+        if (this.totalStored < this.capacity) {
+            // Буфер еще не заполнился полностью — копируем от 0 до totalStored
+            result.set(this.buffer.subarray(0, this.totalStored));
+        } else {
+            // Буфер полон — копируем двумя быстрыми срезами (без цикла с %)
+            const headLength = this.capacity - this.writePointer;
+            result.set(this.buffer.subarray(this.writePointer, this.capacity), 0);
+            result.set(this.buffer.subarray(0, this.writePointer), headLength);
         }
-
-        // === Добавленная диагностика (маленький шаг) ===
-        if (Math.random() < 0.05) {  // выводим ~1 раз из 20 вызовов, чтобы не спамить
-            console.log(`[RingBuffer] capacity=${this.capacity}, totalStored=${this.totalStored}, oldest=${result[0]}, newest=${result[result.length-1]}`);
-        }
-        // ================================================
 
         return result;
     }
