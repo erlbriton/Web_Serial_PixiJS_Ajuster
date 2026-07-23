@@ -88,11 +88,12 @@ export class PixiOscilloscope {
             setNeedsRedraw: () => { this.needsRedraw = true; }
         });
 
+        // ПЕРЕРИСОВКА НА КАЖДОМ КАДРЕ:
+        // Осциллограф должен обновлять экран постоянно,
+        // чтобы сразу отражать падение сигнала и анимировать сетку
         this.app.ticker.add(() => {
-            if (this.needsRedraw) {
-                this.draw(this.lastBuffers);
-                this.needsRedraw = false;
-            }
+            this.draw(this.lastBuffers);
+            this.needsRedraw = false;
         });
 
         // Обработчик колеса прокрутки на контейнере

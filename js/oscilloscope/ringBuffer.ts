@@ -23,7 +23,7 @@ export class RingBuffer {
         }
     }
 
-    // Получение линейного массива от старых точек к самым новым
+        // Получение линейного массива от старых точек к самым новым
     getLinearData(): Float32Array {
         if (this.totalStored === 0) return new Float32Array(0);
         
@@ -34,6 +34,13 @@ export class RingBuffer {
             result[i] = this.buffer[readIndex];
             readIndex = (readIndex + 1) % this.capacity;
         }
+
+        // === Добавленная диагностика (маленький шаг) ===
+        if (Math.random() < 0.05) {  // выводим ~1 раз из 20 вызовов, чтобы не спамить
+            console.log(`[RingBuffer] capacity=${this.capacity}, totalStored=${this.totalStored}, oldest=${result[0]}, newest=${result[result.length-1]}`);
+        }
+        // ================================================
+
         return result;
     }
 }

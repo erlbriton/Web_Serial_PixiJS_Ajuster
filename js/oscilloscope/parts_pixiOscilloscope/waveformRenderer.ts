@@ -11,7 +11,10 @@ export function drawWaveform(
     maxValues: any[], // 7-й аргумент (сохраняем для совместимости вызова)
     row?: any         // 8-й аргумент — объект строки со шкалой
 ): void {
-    const data = Array.from(dataRaw);
+    // Берем только последние точки для расчёта масштаба
+    let data = Array.from(dataRaw);
+    const scaleWindowForScale = Math.min(data.length, 40);// окно только для масштаба
+
     const { y, height } = geom;
     const gridSpacing = 50;
     const timePhasePx = ((Date.now() % 1000) / 1000) * gridSpacing;
@@ -56,27 +59,50 @@ export function drawWaveform(
         if (finalX > 0) drawSeg(segStartX, finalX, segStartVal);
 
     } else {
-        // Проверяем, включено ли автомасштабирование (по умолчанию true, если не задано)
+        // Проверяем флаг автомасштаба
         const isAuto = row?.autoScale ?? true;
         let displayMin = 0;
         let displayMax = 100;
 
         if (isAuto) {
-            // Расчёт максимума ТОЛЬКО из точек, видимых на экране (x >= 0)
-            const visibleCount = Math.min(data.length, Math.ceil(width / 2));
-            let peak = 0;
+            // Расчёт масштаба только по последним 120 точкам
+            let currentMin = Infinity;
+            let currentMax = -Infinity;
 
-            if (visibleCount > 0) {
-                const startIndex = data.length - visibleCount;
+            if (scaleWindowForScale > 0) {
+                const startIndex = data.length - scaleWindowForScale;
                 for (let k = startIndex; k < data.length; k++) {
-                    const absVal = Math.abs(data[k]);
-                    if (absVal > peak) peak = absVal;
+                    const val = data[k];
+                    if (val < currentMin) currentMin = val;
+                    if (val > currentMax) currentMax = val;
                 }
             }
-            
-            displayMax = peak > 0 ? peak * 1.1 : 100;
-            displayMin = 0;
+
+            // Если данные пустые или некорректные — задаем базовые значения
+            if (currentMin === Infinity || currentMax === -Infinity) {
+                currentMin = 0;
+                currentMax = 100;
+            }
+
+            // Если все значения положительные (или нули), привязываем дно к 0
+            if (currentMin >= 0) {/////////////////////////////////////////////////////////\
+                displayMin = 0;
+                let rawMax = Math.max(currentMax, 1.0);
+                if (rawMax < 0.1) rawMax = 1.0;
+                displayMax = rawMax * 1.15;
+            } else {
+                const absPeak = Math.max(Math.abs(currentMin), Math.abs(currentMax), 1.0);
+                displayMax = absPeak * 1.15;
+                displayMin = -displayMax;
+            }
+
+            // Синхронизируем обратно в row.scale
+            if (row && row.scale) {
+                row.scale.displayMin = displayMin;
+                row.scale.displayMax = displayMax;
+            }
         } else if (row && row.scale) {
+            // Если авто-масштаб выключен вручную пользователем
             displayMin = row.scale.displayMin;
             displayMax = row.scale.displayMax;
         }
