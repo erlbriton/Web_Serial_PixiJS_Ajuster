@@ -23,7 +23,7 @@ function getRowIndexByY(model: MonitorModel, absoluteClickY: number): number {
 }
 
 // Выделение строки в интерфейсе
-function selectRowByIndex(
+export function selectRowByIndex(
     clickedRowIndex: number,
     containerRect: DOMRect,
     selectedRowRef: { current: HTMLElement | null },

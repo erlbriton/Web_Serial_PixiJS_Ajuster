@@ -2,7 +2,7 @@
 import { MonitorModel } from "../model/monitorModel.js";
 import { ScopeLayout } from "../model/scopeLayout.js";
 import { handleWheelScroll } from "./parts_pixiOscilloscope/scrollbar.js";
-import { handleCanvasClick, handleCanvasContextMenu, createHighlighter } from "./parts_pixiOscilloscope/canvasInteraction.js";
+import { handleCanvasClick, handleCanvasContextMenu, createHighlighter, selectRowByIndex } from "./parts_pixiOscilloscope/canvasInteraction.js";
 import { generateTableRows } from "./parts_pixiOscilloscope/tableUI.js";
 import { initPixiApp, setupResizeObserver } from "./parts_pixiOscilloscope/pixiInit.js";
 import { initScrollbar } from "./parts_pixiOscilloscope/scrollbarDom.js";
@@ -94,7 +94,7 @@ export class PixiOscilloscope {
             setNeedsRedraw: () => { this.needsRedraw = true; }
         });
 
-        // ПЕРЕРИСОВКА НА КАЖДОМ КАДРЕ:
+        // ПЕРЕРИСОВКА НА КАДРЕ:
         this.app.ticker.add(() => {
             this.draw(this.lastBuffers);
             this.needsRedraw = false;
@@ -246,6 +246,13 @@ export class PixiOscilloscope {
 
             const bodyContainer = document.querySelector('#osc-grid-body') as HTMLElement;
             if (bodyContainer) {
+                // 1. Запоминаем индекс выделенной строки ДО пересоздания DOM
+                let selectedIndex = -1;
+                if (this.selectedRow) {
+                    const rows = Array.from(bodyContainer.querySelectorAll('.osc-data-row'));
+                    selectedIndex = rows.indexOf(this.selectedRow);
+                }
+
                 generateTableRows(
                     model,
                     bodyContainer,
@@ -264,6 +271,21 @@ export class PixiOscilloscope {
                         this.updateRows();
                     }
                 );
+
+                // 2. Если была выделена строка, восстанавливаем подсветку
+                if (selectedIndex !== -1) {
+                    const selectedRef = { current: this.selectedRow };
+                    
+                    selectRowByIndex(
+                        selectedIndex,
+                        this.containerElement.getBoundingClientRect(),
+                        selectedRef,
+                        this.highlighter,
+                        (newSelectedRow: HTMLElement | null) => {
+                            this.selectedRow = newSelectedRow;
+                        }
+                    );
+                }
             }
         } else {
             console.warn('⚠️ updateRows вызван, но oscModel еще не создан');
