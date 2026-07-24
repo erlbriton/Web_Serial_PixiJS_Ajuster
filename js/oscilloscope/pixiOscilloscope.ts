@@ -12,6 +12,10 @@ interface RingBuffer {
     getLinearData: () => number[];
 }
 
+// Константы SVG-иконок для смены внешнего вида кнопки
+const ICON_EXPAND = `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>`;
+const ICON_COLLAPSE = `<svg viewBox="0 0 24 24"><path fill="currentColor" d="M5 16h3v3h2v-5H5v2zm3-8H5v2h5V5H8v3zm6 11h2v-3h3v-2h-5v5zm2-11V5h-2v5h5V8h-3z"/></svg>`;
+
 export class PixiOscilloscope {
     private width: number;
     private height: number;
@@ -34,6 +38,8 @@ export class PixiOscilloscope {
     private maxValues: number[] = [];
     private highlighter: HTMLDivElement;
     private selectedRow: HTMLElement | null = null;
+
+    private isFullscreen: boolean = false;
 
     constructor(containerId: string, model: MonitorModel) {
         const container = document.getElementById(containerId);
@@ -89,8 +95,6 @@ export class PixiOscilloscope {
         });
 
         // ПЕРЕРИСОВКА НА КАЖДОМ КАДРЕ:
-        // Осциллограф должен обновлять экран постоянно,
-        // чтобы сразу отражать падение сигнала и анимировать сетку
         this.app.ticker.add(() => {
             this.draw(this.lastBuffers);
             this.needsRedraw = false;
@@ -165,7 +169,38 @@ export class PixiOscilloscope {
             console.error("❌ PixiOscilloscope: Не удалось найти элемент canvas для назначения обработчиков событий!");
         }
 
+        // Инициализация клика по кнопке "Распахнуть окно"
+        this.initFullscreenButton();
+
         this.needsRedraw = true;
+    }
+
+    private initFullscreenButton(): void {
+        const btn = document.getElementById('osc-btn-fullscreen') as HTMLButtonElement | null;
+        if (!btn) return;
+
+        const oscContainer = this.containerElement.closest('.osc-container') as HTMLElement;
+        if (!oscContainer) return;
+
+        btn.addEventListener('click', () => {
+            this.isFullscreen = !this.isFullscreen;
+
+            if (this.isFullscreen) {
+                oscContainer.classList.add('fullscreen-mode');
+                btn.innerHTML = ICON_COLLAPSE;
+                btn.title = 'Свернуть окно';
+            } else {
+                oscContainer.classList.remove('fullscreen-mode');
+                btn.innerHTML = ICON_EXPAND;
+                btn.title = 'Распахнуть окно';
+            }
+
+            // Выжидаем кадр обновления стилей DOM и инициируем событие ресайза
+            requestAnimationFrame(() => {
+                this.forceResize();
+                window.dispatchEvent(new Event('resize'));
+            });
+        });
     }
 
     updateLayout(model: MonitorModel): void {

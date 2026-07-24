@@ -6,6 +6,7 @@ export const OSCILLOSCOPE_TEMPLATE = `
     <button class="osc-btn" title="Масштаб"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14zm2.5-4h-2v2H9v-2H7V9h2V7h1v2h2v1z"/></svg></button>
     <button class="osc-btn" title="Измерение временных интервалов"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M22 12l-4-4v3H6V8L2 12l4 4v-3h12v3l4-4z"/></svg></button>
     <button class="osc-btn" title="Измерение амплитуды сигнала"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M12 2L8 6h3v12H8l4 4 4-4h-3V6h3l-4-4z"/></svg></button>
+    <button class="osc-btn" id="osc-btn-fullscreen" title="Распахнуть окно"><svg viewBox="0 0 24 24"><path fill="currentColor" d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg></button>
 </div>
 
 <!-- ШАПКА НАД ВСЕЙ ОБЛАСТЬЮ -->

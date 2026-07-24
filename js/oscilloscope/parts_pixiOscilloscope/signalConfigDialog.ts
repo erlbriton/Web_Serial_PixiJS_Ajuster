@@ -1,7 +1,7 @@
 // js/oscilloscope/parts_pixiOscilloscope/signalConfigDialog.ts
 import { MonitorRow } from "../../model/monitorRow.js";
 
-export interface ExtendedMonitorRow extends Omit<MonitorRow, 'autoScale'> {
+export interface ExtendedMonitorRow extends Omit<MonitorRow, 'autoScale' | 'scale' | 'max'> {
     autoScale?: boolean;
     maxScale?: number;
     max?: number;
@@ -33,7 +33,7 @@ export function openSignalConfigDialog(
     dialog.style.cssText = `
         position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%);
         background: #2b2b2b; color: #fff; border: 1px solid #555; padding: 16px;
-        z-index: 1000; box-shadow: 0 8px 24px rgba(0,0,0,0.6); font-family: sans-serif; 
+        z-index: 10001; box-shadow: 0 8px 24px rgba(0,0,0,0.6); font-family: sans-serif; 
         min-width: 320px; border-radius: 4px;
     `;
 
@@ -99,7 +99,7 @@ export function openSignalConfigDialog(
     }
 
     const backdrop = document.createElement('div');
-    backdrop.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; z-index:999; background:rgba(0,0,0,0.3);';
+    backdrop.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; z-index:10000; background:rgba(0,0,0,0.3);';
     document.body.appendChild(backdrop);
     backdrop.appendChild(dialog);
 

@@ -26,3 +26,16 @@
     width: 100% !important;
     height: 100% !important;
 }
+
+/* Полноэкранный режим для контейнера осциллографа */
+.osc-container.fullscreen-mode {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 9999 !important;
+    background: #1e1e1e;
+    margin: 0 !important;
+    padding: 0 !important;
+}
