@@ -1,6 +1,7 @@
 // js/oscilloscope/parts_pixiOscilloscope/canvasInteraction.ts
 import { MonitorModel } from "../../model/monitorModel.js";
 import { openSignalConfigDialog } from "./signalConfigDialog.js";
+import { openRowContextMenu } from "./openMenu.js";
 
 export function createHighlighter(container: HTMLElement): HTMLDivElement {
     const highlighter = document.createElement('div');
@@ -9,13 +10,16 @@ export function createHighlighter(container: HTMLElement): HTMLDivElement {
     return highlighter;
 }
 
-// Поиск индекса строки по координате Y
+// Поиск индекса среди ВИДИМЫХ строк по координате Y
 function getRowIndexByY(model: MonitorModel, absoluteClickY: number): number {
     let currentY = 0;
     for (let i = 0; i < model.rows.length; i++) {
-        const rowHeight = model.rows[i].height;
+        const row = model.rows[i];
+        if (row.visible === false) continue; // Пропускаем скрытые строки
+
+        const rowHeight = row.height || 20;
         if (absoluteClickY >= currentY && absoluteClickY < currentY + rowHeight) {
-            return i;
+            return i; // Возвращаем реальный индекс строки в model.rows
         }
         currentY += rowHeight;
     }
@@ -31,12 +35,23 @@ export function selectRowByIndex(
     onSelectionChange: (row: HTMLElement | null) => void
 ): void {
     if (clickedRowIndex >= 0) {
-        const allRows = document.querySelectorAll('#osc-grid-body .osc-data-row');
-        if (allRows[clickedRowIndex]) {
-            const rowDiv = allRows[clickedRowIndex] as HTMLElement;
+        // Находим все видимые элементы строк в DOM (пропуская display: none)
+        const allVisibleDivs = Array.from(
+            document.querySelectorAll('#osc-grid-body .osc-data-row')
+        ).filter(el => (el as HTMLElement).style.display !== 'none') as HTMLElement[];
 
-            allRows.forEach((row: Element) => {
-                (row as HTMLElement).classList.remove('selected');
+        // Находим порядковый номер среди видимых строк
+        const targetDiv = allVisibleDivs.find(div => {
+            // Если нужно найти по прямому индексу visible-массива
+            return true; 
+        });
+
+        // Находим нужный div по кликнутой позиции среди отображаемых
+        const rowDiv = allVisibleDivs[clickedRowIndex];
+
+        if (rowDiv) {
+            allVisibleDivs.forEach((row: HTMLElement) => {
+                row.classList.remove('selected');
             });
 
             rowDiv.classList.add('selected');
@@ -78,13 +93,26 @@ export function handleCanvasClick(
     highlighter: HTMLDivElement,
     onSelectionChange: (row: HTMLElement | null) => void
 ): void {
-    if (e.button !== 0) return; // Пропускаем все клики, кроме левой кнопки
+    if (e.button !== 0) return;
 
     const canvasRect = canvasView.getBoundingClientRect();
     const absoluteClickY = (e.clientY - canvasRect.top) + scrollY;
-    const clickedRowIndex = getRowIndexByY(model, absoluteClickY);
+    
+    // Получаем индекс кликнутой строки среди видимых
+    const visibleRows = model.rows.filter(r => r.visible !== false);
+    let currentY = 0;
+    let visibleIndex = -1;
 
-    selectRowByIndex(clickedRowIndex, containerRect, selectedRowRef, highlighter, onSelectionChange);
+    for (let i = 0; i < visibleRows.length; i++) {
+        const rowHeight = visibleRows[i].height || 20;
+        if (absoluteClickY >= currentY && absoluteClickY < currentY + rowHeight) {
+            visibleIndex = i;
+            break;
+        }
+        currentY += rowHeight;
+    }
+
+    selectRowByIndex(visibleIndex, containerRect, selectedRowRef, highlighter, onSelectionChange);
 }
 
 // Обработка ПРАВОГО клика по холсту (контекстное меню)
@@ -104,14 +132,41 @@ export function handleCanvasContextMenu(
 
     const canvasRect = canvasView.getBoundingClientRect();
     const absoluteClickY = (e.clientY - canvasRect.top) + scrollY;
-    const clickedRowIndex = getRowIndexByY(model, absoluteClickY);
 
-    selectRowByIndex(clickedRowIndex, containerRect, selectedRowRef, highlighter, onSelectionChange);
+    // Считаем индекс строго по массиву видимых элементов
+    const visibleRows = model.rows.filter(r => r.visible !== false);
+    let currentY = 0;
+    let visibleIndex = -1;
 
-    if (clickedRowIndex >= 0) {
-        const targetRow = model.rows[clickedRowIndex];
-        openSignalConfigDialog(targetRow, () => {
-            if (onSaveConfig) onSaveConfig();
+    for (let i = 0; i < visibleRows.length; i++) {
+        const rowHeight = visibleRows[i].height || 20;
+        if (absoluteClickY >= currentY && absoluteClickY < currentY + rowHeight) {
+            visibleIndex = i;
+            break;
+        }
+        currentY += rowHeight;
+    }
+
+    selectRowByIndex(visibleIndex, containerRect, selectedRowRef, highlighter, onSelectionChange);
+
+    if (visibleIndex >= 0) {
+        const targetRow = visibleRows[visibleIndex];
+
+        if (!targetRow) return;
+
+        openRowContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            onProperties: () => {
+                openSignalConfigDialog(targetRow, () => {
+                    if (onSaveConfig) onSaveConfig();
+                });
+            },
+            onDelete: () => {
+                targetRow.visible = false;
+                selectRowByIndex(-1, containerRect, selectedRowRef, highlighter, onSelectionChange);
+                if (onSaveConfig) onSaveConfig();
+            }
         });
     }
 }

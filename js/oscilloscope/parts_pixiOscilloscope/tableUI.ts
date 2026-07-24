@@ -1,6 +1,7 @@
 // js/oscilloscope/parts_pixiOscilloscope/tableUI.ts
 import { MonitorModel } from "../../model/monitorModel.js";
 import { openSignalConfigDialog } from "./signalConfigDialog.js";
+import { openRowContextMenu } from "./openMenu.js";
 
 export function generateTableRows(
     model: MonitorModel,
@@ -19,6 +20,11 @@ export function generateTableRows(
         const rowDiv = document.createElement('div');
         rowDiv.className = 'osc-data-row';
         rowDiv.style.height = `${row.height || 20}px`;
+
+        // Если строка помечена как невидимая — скрываем её через CSS
+        if (row.visible === false) {
+            rowDiv.style.display = 'none';
+        }
 
         const signal = row.signal || {};
         const isTBit = String(signal.dataType || '').trim() === 'TBit';
@@ -65,7 +71,7 @@ export function generateTableRows(
             highlighter.style.height = `${height}px`;
         });
 
-        // Правый клик — открытие окна настройки
+        // ПРАВЫЙ КЛИК — Вызов контекстного меню
         rowDiv.addEventListener('contextmenu', (e: MouseEvent) => {
             e.preventDefault();
             e.stopPropagation();
@@ -78,8 +84,19 @@ export function generateTableRows(
             highlighter.style.top = `${rowRect.top - containerRect.top}px`;
             highlighter.style.height = `${rowRect.height}px`;
 
-            openSignalConfigDialog(row, () => {
-                if (onSaveConfig) onSaveConfig();
+            openRowContextMenu({
+                x: e.clientX,
+                y: e.clientY,
+                onProperties: () => {
+                    openSignalConfigDialog(row, () => {
+                        if (onSaveConfig) onSaveConfig();
+                    });
+                },
+                onDelete: () => {
+                    row.visible = false;
+                    highlighter.style.display = 'none';
+                    if (onSaveConfig) onSaveConfig();
+                }
             });
         });
 
