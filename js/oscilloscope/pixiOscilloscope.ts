@@ -204,6 +204,7 @@ export class PixiOscilloscope {
     updateRows(rowCount?: number, types?: string[]): void {
         const model = (window as any).oscModel as MonitorModel;
         if (model) {
+            // Перед перерасчетом layout синхронизируем актуальную модель
             this.layout.recalculate(model);
             this.needsRedraw = true;
             console.log(`✅ DEBUG: updateRows вызван через мостик. Строк в модели: ${model.rowCount}`);

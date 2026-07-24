@@ -62,13 +62,16 @@ export function drawWaveform(
         if (finalX > 0) drawSeg(segStartX, finalX, segStartVal);
 
     } else {
-        // Проверяем флаг автомасштаба
-        const isAuto = row?.autoScale ?? true;
+        // Проверяем флаги авто-масштаба:
+        // Рендерер считается автоматическим, ТОЛЬКО если И row.autoScale, И row.scale.auto равны true.
+        // Если хотя бы один из них false — уходим в РУЧНОЙ РЕЖИМ.
+        const isAuto = (row?.autoScale ?? true) && (row?.scale?.auto ?? true);
+
         let displayMin = 0;
         let displayMax = 100;
 
         if (isAuto) {
-            // Автоматический масштаб — окно расчёта (40 последних точек)
+            // ================= РЕЖИМ АВТОМАШТАБА =================
             const scaleWindow = Math.min(dataLen, 40);
             let currentMin = Infinity;
             let currentMax = -Infinity;
@@ -98,14 +101,26 @@ export function drawWaveform(
                 displayMin = -displayMax;
             }
 
-            // Сохраняем рассчитанные значения
+            // Сохраняем значения авто-шкалы в объект строки для UI
             if (row && row.scale) {
                 row.scale.displayMin = displayMin;
                 row.scale.displayMax = displayMax;
             }
-        } else if (row && row.scale) {
-            displayMin = row.scale.displayMin ?? 0;
-            displayMax = row.scale.displayMax ?? 100;
+
+        } else {
+            // ================= РУЧНОЙ РЕЖИМ =================
+            // Забираем значение, введенное пользователем. 
+            // В вашем объекте DisplayScale ручной максимум лежит в baseMax!
+            const userMax = row?.scale?.baseMax ?? row?.scale?.displayMax ?? row?.scale?.max ?? row?.max ?? 100;
+            const userMin = row?.scale?.baseMin ?? row?.scale?.displayMin ?? row?.scale?.min ?? 0;
+
+            displayMax = Number(userMax);
+            displayMin = Number(userMin);
+
+            // Страховка от нулевого диапазона
+            if (displayMax <= displayMin) {
+                displayMax = displayMin + 1.0;
+            }
         }
 
         const span = displayMax - displayMin;
@@ -123,15 +138,22 @@ export function drawWaveform(
             const rawVal = data[dataLen - 1 - j];
             const lineColor = rawVal < 0 ? 0xFF0000 : color;
             
+            // Нормализация: 
+            // При rawVal = 20 и displayMax = 100 -> normalized = 0.2 (20% высоты строки)
+            // При rawVal = 1000 и displayMax = 100 -> normalized = 10.0 (прилипает к верхнему краю)
             const normalized = (rawVal - displayMin) / span;
             let py = y + height - 2 - normalized * usableHeight;
 
-            // Ограничиваем рамками строки
+            // Строгое ограничение в рамках ячейки (clamping)
             py = Math.max(minY, Math.min(maxY, py));
             
             g.lineStyle(1, lineColor, 0.9);
-            if (!started) { g.moveTo(x, py); started = true; }
-            else { g.lineTo(x, py); }
+            if (!started) { 
+                g.moveTo(x, py); 
+                started = true; 
+            } else { 
+                g.lineTo(x, py); 
+            }
         }
     }
 }

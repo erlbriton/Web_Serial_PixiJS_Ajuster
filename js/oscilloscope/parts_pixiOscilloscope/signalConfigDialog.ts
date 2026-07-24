@@ -4,6 +4,8 @@ import { MonitorRow } from "../../model/monitorRow.js";
 export interface ExtendedMonitorRow extends Omit<MonitorRow, 'autoScale'> {
     autoScale?: boolean;
     maxScale?: number;
+    max?: number;
+    scale?: any;
 }
 
 export function openSignalConfigDialog(
@@ -12,13 +14,15 @@ export function openSignalConfigDialog(
 ): void {
     const row = rowInput as ExtendedMonitorRow;
 
-    // --- КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ ---
-    // Используем maxScale как маркер первого открытия настроек для этой строки.
-    // Если его нет, значит строку мы еще не настраивали. Принудительно ставим "Авто", 
-    // перебивая любой false, который мог прийти из базовой модели инициализации.
+    // Инициализация при первом открытии: проверяем все варианты флагов
     if (row.maxScale === undefined) {
-        row.autoScale = true;
-        row.maxScale = 1; // Задаем сразу базовое значение, чтобы при следующем открытии маркер сработал
+        // Если флагов еще нет, по умолчанию ставим Авто
+        if (row.autoScale === undefined && row.scale?.auto === undefined) {
+            row.autoScale = true;
+        }
+        // Извлекаем существующий максимум из любого доступного источника
+        const currentMax = row.scale?.baseMax ?? row.scale?.displayMax ?? row.max ?? 1;
+        row.maxScale = currentMax;
     }
 
     const existing = document.getElementById('osc-signal-config-dialog');
@@ -38,8 +42,11 @@ export function openSignalConfigDialog(
     const disabledAttr = isTBit ? 'disabled' : '';
     const inputStyle = `width:100%; background:${isTBit ? '#111' : '#1a1a1a'}; border:1px solid #444; color:${isTBit ? '#888' : '#fff'}; padding:6px; box-sizing:border-box;`;
     
-    // Теперь статус читается строго и предсказуемо
-    const isAuto = row.autoScale === true;
+    // Определяем текущий статус Авто (проверяем и row.autoScale, и row.scale.auto)
+    const isAuto = row.autoScale === true || (row.scale && row.scale.auto === true);
+
+    // Берем значение для инпута из наиболее свежего поля
+    const initialMaxVal = row.maxScale ?? row.scale?.baseMax ?? row.scale?.displayMax ?? row.max ?? 1;
 
     dialog.innerHTML = `
         <form id="osc-cfg-form" onsubmit="return false;" style="margin:0; padding:0;">
@@ -66,7 +73,7 @@ export function openSignalConfigDialog(
                             <input type="checkbox" id="osc-cfg-auto" ${isAuto ? 'checked' : ''} ${disabledAttr}> Авто
                         </label>
                     </div>
-                    <input type="number" id="osc-cfg-max" value="${row.maxScale ?? 1}" step="0.1" ${isAuto || isTBit ? 'disabled' : ''} style="${inputStyle}">
+                    <input type="number" id="osc-cfg-max" value="${initialMaxVal}" step="0.1" ${isAuto || isTBit ? 'disabled' : ''} style="${inputStyle}">
                 </div>
                 <div style="flex:1;">
                     <label style="display:block; font-size:11px; color:#aaa; margin-bottom:4px;">Высота (px):</label>
@@ -130,8 +137,31 @@ export function openSignalConfigDialog(
             signal.multiplier = parseFloat(scaleInput.value) || 1;
             
             row.height = parseInt(heightInput.value) || 20;
-            row.autoScale = autoCheckbox.checked; 
-            row.maxScale = parseFloat(maxInput.value) || 1; 
+
+            const isAutoSelected = autoCheckbox.checked;
+            const userMaxValue = parseFloat(maxInput.value) || 1;
+
+            // 1. Записываем флаг авто-масштаба во все возможные структуры строки
+            row.autoScale = isAutoSelected;
+            
+            // 2. Записываем максимальное значение во все привычные рендереру свойства
+            row.maxScale = userMaxValue;
+            row.max = userMaxValue;
+
+            // 3. Синхронизируем вложенный объект scale (экземпляр DisplayScale)
+            if (row.scale) {
+                row.scale.auto = isAutoSelected;
+                row.scale.baseMax = userMaxValue;
+                row.scale.displayMax = userMaxValue;
+            } else {
+                row.scale = {
+                    auto: isAutoSelected,
+                    baseMin: 0,
+                    baseMax: userMaxValue,
+                    displayMin: 0,
+                    displayMax: userMaxValue
+                };
+            }
 
             onSave(); 
             closeDialog();
